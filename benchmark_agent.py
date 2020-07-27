@@ -55,6 +55,9 @@ def run(model_path, port, suite, big_cam, seed, autopilot, resume, max_run=10, s
         benchmark_dir = log_dir / 'benchmark' / model_path.stem / ('%s_seed%d' % (suite_name, seed))
         benchmark_dir.mkdir(parents=True, exist_ok=True)
 
+        with make_suite('FullTown01-v1', port=port, planner='new') as env:
+            import pdb;pdb.set_trace()
+
         with make_suite(suite_name, port=port, big_cam=big_cam) as env:
             agent_maker = _agent_factory_hack(model_path, config, autopilot)
 

@@ -343,13 +343,14 @@ class CarlaWrapper(object):
     def __init__(
             self, town='Town01', vehicle_name=VEHICLE_NAME, port=2000, client=None,
             col_threshold=400, big_cam=False, seed=None, respawn_peds=True, **kwargs):
-        
+
         if client is None:    
             self._client = carla.Client('localhost', port)
         else:
             self._client = client
             
         self._client.set_timeout(30.0)
+
 
         set_sync_mode(self._client, False)
 

@@ -33,7 +33,7 @@ def regression_base():
 
 def spatial_softmax_base():
     return nn.Sequential(
-            nn.BatchNorm2d(640),
+            nn.BatchNorm2d(640), #num channels
             nn.ConvTranspose2d(640,256,3,2,1,1),
             nn.ReLU(True),
             nn.BatchNorm2d(256),
@@ -59,11 +59,24 @@ class BirdViewPolicyModelSS(common.ResnetBase):
         self.all_branch = all_branch
 
     def forward(self, bird_view, velocity, command):
+        """
+
+        :type bird_view: torch.Tensor
+        :type velocity: torch.Tensor
+        :type command: torch.Tensor
+        :param bird_view: batch x 7 x W x H Map
+        :param velocity: 1D array of length b
+        :param command: b x 4 array; one hot vectors
+        :return: tensor of shape [b, 5, 2]
+        """
         h = self.conv(bird_view)
         b, c, kh, kw = h.size()
+        # 128, 512, 6, 6
 
         # Late fusion for velocity
         velocity = velocity[...,None,None,None].repeat((1,128,kh,kw))
+        # shape is now [128, 128, 6, 6]
+
 
         h = torch.cat((h, velocity), dim=1)
         h = self.deconv(h)

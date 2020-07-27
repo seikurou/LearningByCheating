@@ -203,6 +203,8 @@ ALL_SUITES = list(_suites.keys()) + list(_aliases.keys())
 def make_suite(suite_name, port=2000, big_cam=False, planner='new', client=None):
     assert suite_name in _suites, '%s is not registered!'%suite_name
 
+
+
     args, kwargs = _suites[suite_name]
     kwargs['port'] = port
     kwargs['big_cam'] = big_cam

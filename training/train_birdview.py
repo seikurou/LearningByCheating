@@ -121,7 +121,7 @@ def train_or_eval(criterion, net, data, optim, is_train, config, is_first_epoch)
 
     tick = time.time()
 
-    # iterate over frames
+    # iterate over batches
     for i, (birdview, location, command, speed) in iterator:
         birdview = birdview.to(config['device'])
         command = one_hot(command).to(config['device'])

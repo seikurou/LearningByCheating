@@ -95,7 +95,7 @@ class BasicAgent(Agent):
         actor_list = self._world.get_actors()
         vehicle_list = actor_list.filter("*vehicle*")
         lights_list = actor_list.filter("*traffic_light*")
-        # import pdb; pdb.set_trace()
+
         print (actor_list)
 
         # check possible obstacles

@@ -88,7 +88,6 @@ def rollout(replay_buffer, coord_converter, net, teacher_net, episode,
         data = list()
     
         while len(data) < episode_length:
-            import pdb;pdb.set_trace()
             with make_suite('FullTown01-v1', port=port, planner=planner) as env:
                 start, target = env.pose_tasks[np.random.randint(len(env.pose_tasks))]
                 env_params = {

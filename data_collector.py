@@ -206,8 +206,8 @@ def get_episode(env, params):
 
     progress.close()
 
-    if (not env.is_success() and not env.collided) or len(data) < 500:
-        return None
+    # if (not env.is_success() and not env.collided) or len(data) < 500:
+    #     return None
 
     return data
 

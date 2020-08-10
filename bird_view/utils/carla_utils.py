@@ -665,8 +665,8 @@ class CarlaWrapper(object):
             self._actor_dict['sensor'].append(big_camera)
             
         rgb_camera_bp = self._blueprints.find('sensor.camera.rgb')
-        rgb_camera_bp.set_attribute('image_size_x', '384')
-        rgb_camera_bp.set_attribute('image_size_y', '160')
+        rgb_camera_bp.set_attribute('image_size_x', '1250')
+        rgb_camera_bp.set_attribute('image_size_y', '512')
         rgb_camera_bp.set_attribute('fov', '90')
         rgb_camera = self._world.spawn_actor(
             rgb_camera_bp,

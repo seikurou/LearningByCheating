@@ -239,6 +239,9 @@ def main(params):
 
                 for i, x in enumerate(data):
                     txn.put(
+                        ('depth_%04d' % i).encode(),
+                        np.ascontiguousarray(x['depth']).astype(np.uint8))
+                    txn.put(
                             ('rgb_%04d' % i).encode(),
                             np.ascontiguousarray(x['rgb']).astype(np.uint8))
                     txn.put(

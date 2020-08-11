@@ -114,6 +114,7 @@ def get_birdview(observations):
 
 def process(observations):
     result = dict()
+    result['depth'] = observations['depth'].copy()
     result['rgb'] = observations['rgb'].copy()
     result['birdview'] = observations['birdview'].copy()
     result['collided'] = observations['collided']
@@ -385,7 +386,9 @@ class CarlaWrapper(object):
         self.rgb_image = None
         self._big_cam_queue = None
         self.big_cam_image = None
-        
+        self._depth_queue = None
+        self.depth_image = None
+
         self.seed = seed
 
         self._respawn_peds = respawn_peds
@@ -565,7 +568,10 @@ class CarlaWrapper(object):
         # Put here for speed (get() busy polls queue).
         while self.rgb_image is None or self._rgb_queue.qsize() > 0:
             self.rgb_image = self._rgb_queue.get()
-        
+
+        while self.depth_image is None or self._depth_queue.qsize() > 0:
+            self.depth_image = self._depth_queue.get()
+
         if self._big_cam:
             while self.big_cam_image is None or self._big_cam_queue.qsize() > 0:
                 self.big_cam_image = self._big_cam_queue.get()
@@ -577,6 +583,7 @@ class CarlaWrapper(object):
         result.update(map_utils.get_observations())
         # print ("%.3f, %.3f"%(self.rgb_image.timestamp, self._world.get_snapshot().timestamp.elapsed_seconds))
         result.update({
+            'depth': carla_img_to_np(self.depth_image),
             'rgb': carla_img_to_np(self.rgb_image),
             'birdview': get_birdview(result),
             'collided': self.collided
@@ -650,6 +657,7 @@ class CarlaWrapper(object):
         """
         # Camera.
         self._rgb_queue = queue.Queue()
+        self._depth_queue = queue.Queue()
 
         if self._big_cam:
             self._big_cam_queue = queue.Queue()
@@ -675,8 +683,17 @@ class CarlaWrapper(object):
 
         rgb_camera.listen(self._rgb_queue.put)
         self._actor_dict['sensor'].append(rgb_camera)
-        
-        
+
+        depth_camera_bp = self._blueprints.find('sensor.camera.depth')
+        depth_camera_bp.set_attribute('image_size_x', '1250')
+        depth_camera_bp.set_attribute('image_size_y', '512')
+        depth_camera_bp.set_attribute('fov', '90')
+        depth_camera = self._world.spawn_actor(
+            depth_camera_bp,
+            carla.Transform(carla.Location(x=2.0, z=1.4), carla.Rotation(pitch=0)),
+            attach_to=self._player)
+        depth_camera.listen(self._depth_queue.put)
+        self._actor_dict['sensor'].append(depth_camera)
 
         # Collisions.
         self.collided = False

@@ -6,6 +6,7 @@ import random
 
 import numpy as np
 import math
+import cv2
 
 # import needed due to https://github.com/pytorch/pytorch/issues/36034
 import torchvision
@@ -58,6 +59,8 @@ COLORS = [
 
 TOWNS = ['Town01', 'Town02', 'Town03', 'Town04']
 VEHICLE_NAME = 'vehicle.ford.mustang'
+KM_TO_CM = 100000
+
 
 def is_within_distance_ahead(target_location, current_location, orientation, max_distance, degree=60):
     u = np.array([
@@ -114,8 +117,20 @@ def get_birdview(observations):
 
 def process(observations):
     result = dict()
-    result['depth'] = observations['depth'].copy()
-    result['rgb'] = observations['rgb'].copy()
+
+    rgb = observations['rgb']
+    depth = observations['depth']
+
+    depth = depth.astype('float32')
+    depth = KM_TO_CM * ((depth[:, :, 0] + depth[:, :, 1] * 256 + depth[:, :, 2] * 256 * 256) / (256 * 256 * 256 - 1))
+    depth = np.clip(depth, 0, 65535)
+    depth = depth.astype('uint16')
+    depth = cv2.imencode('.png', depth)[1].flatten()
+
+    rgb = cv2.imencode('.png', rgb)[1].flatten()
+
+    result['depth'] = depth
+    result['rgb'] = rgb
     result['birdview'] = observations['birdview'].copy()
     result['collided'] = observations['collided']
 

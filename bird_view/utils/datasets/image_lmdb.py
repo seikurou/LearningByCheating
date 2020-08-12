@@ -130,10 +130,10 @@ class ImageDataset(Dataset):
         lmdb_txn = self.file_map[idx]
         index = self.idx_map[idx]
 
-        depth_image = np.frombuffer(lmdb_txn.get(('depth_%04d' %index).encode()), np.uint8).reshape(512, 1250, 3)
+        depth_image = cv2.imdecode(np.frombuffer(lmdb_txn.get(('depth_%04d' %index).encode()), np.uint8), cv2.IMREAD_UNCHANGED)[:,:,None].astype('int32')
         bird_view = np.frombuffer(lmdb_txn.get(('birdview_%04d'%index).encode()), np.uint8).reshape(320,320,7)
         measurement = np.frombuffer(lmdb_txn.get(('measurements_%04d'%index).encode()), np.float32)
-        rgb_image = np.fromstring(lmdb_txn.get(('rgb_%04d'%index).encode()), np.uint8).reshape(512,1250,3)
+        rgb_image = cv2.imdecode(np.frombuffer(lmdb_txn.get(('rgb_%04d'%index).encode()), np.uint8), cv2.IMREAD_UNCHANGED)
 
         if self.augmenter:
             rgb_images = [self.augmenter(self.batch_read_number).augment_image(rgb_image) for i in range(self.batch_aug)]

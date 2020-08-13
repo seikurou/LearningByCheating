@@ -87,7 +87,7 @@ MODULE_WORLD = 'WORLD'
 MODULE_HUD = 'HUD'
 MODULE_INPUT = 'INPUT'
 
-PIXELS_PER_METER = 5
+PIXELS_PER_METER = 4
 
 MAP_DEFAULT_SCALE = 0.1
 HERO_DEFAULT_SCALE = 1.0
@@ -1323,12 +1323,12 @@ class Wrapper(object):
         module_manager.clear_modules()
 
         pygame.init()
-        display = pygame.display.set_mode((320, 320), 0, 32)
+        display = pygame.display.set_mode((200, 200), 0, 32)
         pygame.display.flip()
 
         # Set map drawer module
         input_module = ModuleInput(MODULE_INPUT)
-        hud_module = ModuleHUD(MODULE_HUD, 320, 320)
+        hud_module = ModuleHUD(MODULE_HUD, 200, 200)
         world_module = ModuleWorld(MODULE_WORLD, client, world, carla_map, player)
 
         # Register Modules

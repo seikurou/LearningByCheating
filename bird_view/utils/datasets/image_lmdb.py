@@ -131,7 +131,7 @@ class ImageDataset(Dataset):
         index = self.idx_map[idx]
 
         depth_image = cv2.imdecode(np.frombuffer(lmdb_txn.get(('depth_%04d' %index).encode()), np.uint8), cv2.IMREAD_UNCHANGED)[:,:,None].astype('int32')
-        bird_view = np.frombuffer(lmdb_txn.get(('birdview_%04d'%index).encode()), np.uint8).reshape(320,320,7)
+        bird_view = np.frombuffer(lmdb_txn.get(('birdview_%04d'%index).encode()), np.uint8).reshape(200,200,7)
         measurement = np.frombuffer(lmdb_txn.get(('measurements_%04d'%index).encode()), np.float32)
         rgb_image = cv2.imdecode(np.frombuffer(lmdb_txn.get(('rgb_%04d'%index).encode()), np.uint8), cv2.IMREAD_UNCHANGED)
 
@@ -161,7 +161,7 @@ class ImageDataset(Dataset):
         center_x, center_y = 160, 260-self.crop_size//2
         
             
-        bird_view = bird_view[dy+center_y-self.crop_size//2:dy+center_y+self.crop_size//2,dx+center_x-self.crop_size//2:dx+center_x+self.crop_size//2]
+        # bird_view = bird_view[dy+center_y-self.crop_size//2:dy+center_y+self.crop_size//2,dx+center_x-self.crop_size//2:dx+center_x+self.crop_size//2]
         
         angle = np.arctan2(ori_oy, ori_ox) + np.deg2rad(delta_angle)
         ori_ox, ori_oy = np.cos(angle), np.sin(angle)

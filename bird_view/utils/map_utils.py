@@ -92,7 +92,11 @@ PIXELS_PER_METER = 4
 MAP_DEFAULT_SCALE = 0.1
 HERO_DEFAULT_SCALE = 1.0
 
-PIXELS_AHEAD_VEHICLE = 100
+# (bev-height // 2) + ( ||camera_loc - vehicle_loc|| * PIXELS_PER_METER)
+# ||camera_loc - vehicle_loc|| is the camera's location relative to vehicle; in lbc it is 2 meters
+# (200 // 2) + (2 * 4)
+PIXELS_AHEAD_VEHICLE = 108
+# the center of the final bev image is PIXELS_AHEAD_VEHICLE in ahead the ego vehicle
 
 
 def get_actor_display_name(actor, truncate=250):
@@ -558,23 +562,23 @@ class ModuleWorld(object):
         self.original_surface_size = None
         # self.actors_surface = None
         
-        self.self_surface = None
-        self.vehicle_surface = None
-        self.walker_surface = None
+        self.self_surface: pygame.Surface = None
+        self.vehicle_surface: pygame.Surface = None
+        self.walker_surface: pygame.Surface = None
         
-        self.hero_map_surface = None
-        self.hero_lane_surface = None
-        self.hero_self_surface = None
-        self.hero_vehicle_surface = None
-        self.hero_walker_surface = None
-        self.hero_traffic_light_surface = None
+        self.hero_map_surface: pygame.Surface = None
+        self.hero_lane_surface: pygame.Surface = None
+        self.hero_self_surface: pygame.Surface = None
+        self.hero_vehicle_surface: pygame.Surface = None
+        self.hero_walker_surface: pygame.Surface = None
+        self.hero_traffic_light_surface: pygame.Surface = None
 
-        self.window_map_surface = None
-        self.window_lane_surface = None
-        self.window_self_surface = None
-        self.window_vehicle_surface = None
-        self.window_walker_surface = None
-        self.window_traffic_light_surface = None
+        self.window_map_surface: pygame.Surface = None
+        self.window_lane_surface: pygame.Surface = None
+        self.window_self_surface: pygame.Surface = None
+        self.window_vehicle_surface: pygame.Surface = None
+        self.window_walker_surface: pygame.Surface = None
+        self.window_traffic_light_surface: pygame.Surface = None
 
         self.hero_map_image = None
         self.hero_lane_image = None
@@ -645,7 +649,7 @@ class ModuleWorld(object):
         pygame.draw.circle(self.border_round_surface, COLOR_ALUMINIUM_1, center_offset, int(self.module_hud.dim[1] / 2))
         pygame.draw.circle(self.border_round_surface, COLOR_WHITE, center_offset, int((self.module_hud.dim[1] - 8) / 2))
 
-        scaled_original_size = self.original_surface_size * (1.0 / 0.9)
+        scaled_original_size = self.original_surface_size * 1.5
         # self.hero_surface = pygame.Surface((scaled_original_size, scaled_original_size)).convert()
 
         self.hero_map_surface = pygame.Surface((scaled_original_size, scaled_original_size)).convert()
@@ -1122,11 +1126,11 @@ class ModuleWorld(object):
             # TODO: traffic lights and speed limits surface
             rz = pygame.transform.rotozoom
 
-            rotated_map_surface = rz(self.hero_map_surface, angle, 0.9).convert()
-            rotated_lane_surface = rz(self.hero_lane_surface, angle, 0.9).convert()
-            rotated_vehicle_surface = rz(self.hero_vehicle_surface, angle, 0.9).convert()
-            rotated_walker_surface = rz(self.hero_walker_surface, angle, 0.9).convert()
-            rotated_traffic_surface = rz(self.hero_traffic_light_surface, angle, 0.9).convert()
+            rotated_map_surface = rz(self.hero_map_surface, angle, 1.0).convert()
+            rotated_lane_surface = rz(self.hero_lane_surface, angle, 1.0).convert()
+            rotated_vehicle_surface = rz(self.hero_vehicle_surface, angle, 1.0).convert()
+            rotated_walker_surface = rz(self.hero_walker_surface, angle, 1.0).convert()
+            rotated_traffic_surface = rz(self.hero_traffic_light_surface, angle, 1.0).convert()
             # rotated_self_surface = rz(self.hero_self_surface, angle, 0.9).convert()
 
             center = (display.get_width() / 2, display.get_height() / 2)

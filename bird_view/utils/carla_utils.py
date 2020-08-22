@@ -127,7 +127,7 @@ def process(observations):
     depth = depth.astype('uint16')
     depth = cv2.imencode('.png', depth)[1].flatten()
 
-    rgb = cv2.imencode('.png', rgb)[1].flatten()
+    rgb = cv2.imencode('.png', rgb[..., ::-1])[1].flatten()
 
     result['depth'] = depth
     result['rgb'] = rgb

@@ -120,6 +120,7 @@ def process(observations):
 
     rgb = observations['rgb']
     depth = observations['depth']
+    semantic = observations['semantic']
 
     depth = depth.astype('float32')
     depth = KM_TO_CM * ((depth[:, :, 0] + depth[:, :, 1] * 256 + depth[:, :, 2] * 256 * 256) / (256 * 256 * 256 - 1))
@@ -129,8 +130,11 @@ def process(observations):
 
     rgb = cv2.imencode('.png', rgb[..., ::-1])[1].flatten()
 
+    semantic = cv2.imencode('.png', semantic[..., 0])[1].flatten()
+
     result['depth'] = depth
     result['rgb'] = rgb
+    result['semantic'] = semantic
     result['birdview'] = observations['birdview'].copy()
     result['collided'] = observations['collided']
 
@@ -403,6 +407,8 @@ class CarlaWrapper(object):
         self.big_cam_image = None
         self._depth_queue = None
         self.depth_image = None
+        self._semantic_queue = None
+        self.semantic_image = None
 
         self.seed = seed
 
@@ -587,6 +593,9 @@ class CarlaWrapper(object):
         while self.depth_image is None or self._depth_queue.qsize() > 0:
             self.depth_image = self._depth_queue.get()
 
+        while self.semantic_image is None or self._semantic_queue.qsize() > 0:
+            self.semantic_image = self._semantic_queue.get()
+
         if self._big_cam:
             while self.big_cam_image is None or self._big_cam_queue.qsize() > 0:
                 self.big_cam_image = self._big_cam_queue.get()
@@ -600,6 +609,7 @@ class CarlaWrapper(object):
         result.update({
             'depth': carla_img_to_np(self.depth_image),
             'rgb': carla_img_to_np(self.rgb_image),
+            'semantic': carla_img_to_np(self.semantic_image),
             'birdview': get_birdview(result),
             'collided': self.collided
             })
@@ -673,6 +683,7 @@ class CarlaWrapper(object):
         # Camera.
         self._rgb_queue = queue.Queue()
         self._depth_queue = queue.Queue()
+        self._semantic_queue = queue.Queue()
 
         if self._big_cam:
             self._big_cam_queue = queue.Queue()
@@ -709,6 +720,17 @@ class CarlaWrapper(object):
             attach_to=self._player)
         depth_camera.listen(self._depth_queue.put)
         self._actor_dict['sensor'].append(depth_camera)
+
+        semantic_camera_bp = self._blueprints.find('sensor.camera.semantic_segmentation')
+        semantic_camera_bp.set_attribute('image_size_x', '1250')
+        semantic_camera_bp.set_attribute('image_size_y', '512')
+        semantic_camera_bp.set_attribute('fov', '90')
+        semantic_camera = self._world.spawn_actor(
+            semantic_camera_bp,
+            carla.Transform(carla.Location(x=2.0, z=1.4), carla.Rotation(pitch=0)),
+            attach_to=self._player)
+        semantic_camera.listen(self._semantic_queue.put)
+        self._actor_dict['sensor'].append(semantic_camera)
 
         # Collisions.
         self.collided = False

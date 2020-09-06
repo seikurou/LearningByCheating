@@ -414,3 +414,29 @@ The original raw numbers are shown below
 
 ## License
 This repo is released under the MIT License (please refer to the LICENSE file for details). Part of the PythonAPI and the map rendering code is borrowed from the official [CARLA](https://github.com/carla-simulator/carla) repo, which is under MIT license. The image augmentation code is borrowed from [Coiltraine](https://github.com/felipecode/coiltraine) which is released under MIT license.
+
+# Code Structure
+
+`data_collector.py` is structured such that in function `main`, there is a loop that iterates thru
+each episode. `get_episode` returns all collected data about that episode, by repeatedly calling
+    tick, which renders the surfaces and drives the agents and,
+    get_observations, which later obtain the frame data
+    
+Here is the trace stack of functions that do the heavy lifting of actual rendering for each ticks:
+    PointGoalSuite.tick
+    BaseSuite.tick
+    carla_utils.CarlaWrapper.tick
+    map_utils.Wrapper.tick
+    ModuleManager.render
+    ModuleWorld.render = actual rendering code!
+    
+Trace stack of obtaining the already rendered surface and stats about the egovehicle:
+    PointGoalSuite.get_observations
+    BaseSuite.get_observations
+    carla_utils.CarlaWrapper.get_observations
+    map_utils.Wrapper.get_observations
+        --> for rendered surfaces: ModuleManager.get_rendered_surface
+        --> for stats: ModuleWorld.get_hero_measurements
+
+
+    

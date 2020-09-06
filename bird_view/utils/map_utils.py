@@ -625,9 +625,8 @@ class ModuleWorld(object):
 
     def get_hero_measurements(self):
         """
-        Retrieve various stats about the egovehicle.
+        Retrieve various stats about the egovehicle in the town coord sys.
         Returns:
-            todo: check what coord sys xyz are in
             position: xyz in meter
             orientation: xy (not sure if normalized)
             veolcity: xyz velocity
@@ -647,7 +646,7 @@ class ModuleWorld(object):
 
     def start(self):
         """
-        Create all the necessary pygame Surfaces. Todo: what are they?!
+        Create the 3 sets of surfaces, and other miscellious surfaces.
         Returns:
 
         """

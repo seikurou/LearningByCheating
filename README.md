@@ -423,9 +423,9 @@ each episode. `get_episode` returns all collected data about that episode, by re
     get_observations, which later obtain the frame data
     
 Here is the trace stack of functions that do the heavy lifting of actual rendering for each ticks:
-    PointGoalSuite.tick
-    BaseSuite.tick
-    carla_utils.CarlaWrapper.tick
+    PointGoalSuite.tick \
+    BaseSuite.tick \
+    carla_utils.CarlaWrapper.tick \
     map_utils.Wrapper.tick
     ModuleManager.render
     ModuleWorld.render = actual rendering code!
@@ -438,5 +438,10 @@ Trace stack of obtaining the already rendered surface and stats about the egoveh
         --> for rendered surfaces: ModuleManager.get_rendered_surface
         --> for stats: ModuleWorld.get_hero_measurements
 
+# To run the benchmarks referenced in the paper
+They are the following suites:
 
-    
+- NoCrash including both training town01 and validating on town02)
+   - empty ('NoCrashTown01-v1', 'NoCrashTown01-v2', 'NoCrashTown02-v1', 'NoCrashTown02-v2)
+   - regular ('NoCrashTown01-v3', 'NoCrashTown01-v4', 'NoCrashTown02-v3', 'NoCrashTown02-v4')
+   - dense ('NoCrashTown01-v5', 'NoCrashTown01-v6', 'NoCrashTown02-v5', 'NoCrashTown02-v6)

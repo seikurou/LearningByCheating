@@ -18,7 +18,7 @@ cd $CODE/BEVSEG/LearningByCheating
 DISPLAY= simulator/CarlaUE4.sh -opengl -fps=10 -benchmark  # display off
 #CUDA_VISIBLE_DEVICES=1 ./CarlaUE4.sh -fps=10 -benchmark  # this is untested
 
-export PYTHONPATH="$ROOT/PythonAPI:$PYTHONPATH"
+export PYTHONPATH="$CODE/BEVSEG/LearningByCheating/PythonAPI:$PYTHONPATH"
 mkdir -p ./data
 python data_collector.py --dataset_path=data
 

@@ -13,6 +13,12 @@ python3 bird_view/data_collector.py \
         --n_vehicles 0 \
         --n_pedestrians 0
 """
+import sys
+import glob
+try:
+    sys.path.append(glob.glob('./bird_view')[0])
+except IndexError as e:
+    pass
 import argparse
 
 from pathlib import Path

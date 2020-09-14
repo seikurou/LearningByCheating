@@ -1,6 +1,7 @@
 import time
 import argparse
 
+
 from pathlib import Path
 
 import numpy as np
@@ -20,7 +21,7 @@ except IndexError as e:
 import utils.bz_utils as bzu
 
 from models.birdview import BirdViewPolicyModelSS
-from train_util import one_hot
+from utils.train_utils import one_hot
 from utils.datasets.birdview_lmdb import get_birdview as load_data
 
 
@@ -155,11 +156,14 @@ def train_or_eval(criterion, net, data, optim, is_train, config, is_first_epoch)
 
 def train(config):
     bzu.log.init(config['log_dir'])
+    import wandb
+    name = os.path.basename(config['log_dir'])
+    wandb.init(project='bevseg-lbc', name=name, sync_tensorboard=True)
     bzu.log.save_config(config)
 
     data_train, data_val = load_data(**config['data_args'])
     criterion = LocationLoss(w=192, h=192, choice='l1')
-    net = BirdViewPolicyModelSS(config['model_args']['backbone']).to(config['device'])
+    net = BirdViewPolicyModelSS(config['model_args']['backbone'], config=config).to(config['device'])
     
     if config['resume']:
         log_dir = Path(config['log_dir'])
@@ -198,6 +202,8 @@ if __name__ == '__main__':
     parser.add_argument('--max_frames', type=int, default=None)
     parser.add_argument('--cmd-biased', action='store_true', default=False)
     parser.add_argument('--resume', action='store_true')
+    parser.add_argument('--BEVSEG_network', type=str, default=None)
+
 
     # Optimizer.
     parser.add_argument('--lr', type=float, default=1e-4)
@@ -227,6 +233,7 @@ if __name__ == '__main__':
                 'input_channel': 7,
                 'backbone': BACKBONE,
                 },
-            }
+            'BEVSEG_network': parsed.BEVSEG_network,
+    }
 
     train(config)

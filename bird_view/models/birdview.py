@@ -58,6 +58,20 @@ class BirdViewPolicyModelSS(common.ResnetBase):
         
         self.all_branch = all_branch
 
+        self.config = kwargs['config']
+        bev_name = self.config['BEVSEG_network']
+        if bev_name == 'vpn':
+            from vpn.train_carla import parse_args_and_construct_model
+            vpn_args = ''' --fc-dim 256 --use-mask false --transform-type fc --input-resolution 512 --label-resolution 32 --n-views 1 --num-class 4  \
+            --use_depth False \
+            --use_segmented False \
+            --SegSize 200 \
+            --dataset bevseg \
+            --multiclass_binary_entropy False \
+            --resume /data/ck/BESEG/baseline_vpn/runs/bevseg_4/_best.pth.tar \
+            '''
+            self.bev = parse_args_and_construct_model(vpn_args)
+
     def forward(self, bird_view, velocity, command):
         h = self.conv(bird_view)
         b, c, kh, kw = h.size()

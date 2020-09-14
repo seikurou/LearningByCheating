@@ -8,9 +8,11 @@ import math
 
 import numpy as np
 
-import carla
-
-from carla import TrafficLightState as tls
+try:
+    import carla
+    from carla import TrafficLightState as tls
+except:
+    pass
 
 import pygame
 

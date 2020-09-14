@@ -10,7 +10,8 @@ import torchvision.transforms as transforms
 
 from .resnet import get_resnet
 
-
+RGB_IMG_WIDTH = 1280  # 32 * 40, having 5 factors of 2 should help with some models that only accepts power of 2
+RGB_IMG_HEIGHT = 512
 CROP_SIZE = 192
 MAP_SIZE = 320
 

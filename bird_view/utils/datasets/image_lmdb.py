@@ -14,6 +14,7 @@ import math
 import random
 
 import augmenter
+from models.common import RGB_IMG_WIDTH, RGB_IMG_HEIGHT
 
 PIXEL_OFFSET = 10
 PIXELS_PER_METER = 5
@@ -132,7 +133,7 @@ class ImageDataset(Dataset):
         
         bird_view = np.frombuffer(lmdb_txn.get(('birdview_%04d'%index).encode()), np.uint8).reshape(320,320,7)
         measurement = np.frombuffer(lmdb_txn.get(('measurements_%04d'%index).encode()), np.float32)
-        rgb_image = np.fromstring(lmdb_txn.get(('rgb_%04d'%index).encode()), np.uint8).reshape(160,384,3)
+        rgb_image = np.fromstring(lmdb_txn.get(('rgb_%04d'%index).encode()), np.uint8).reshape(RGB_IMG_HEIGHT,RGB_IMG_WIDTH,3)
 
         if self.augmenter:
             rgb_images = [self.augmenter(self.batch_read_number).augment_image(rgb_image) for i in range(self.batch_aug)]

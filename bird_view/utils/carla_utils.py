@@ -9,39 +9,45 @@ import math
 
 # import needed due to https://github.com/pytorch/pytorch/issues/36034
 import torchvision
-import carla
 
-from carla import ColorConverter
-from carla import WeatherParameters
 
 from .map_utils import Wrapper as map_utils
+from models.common import RGB_IMG_WIDTH, RGB_IMG_HEIGHT
 
 
-PRESET_WEATHERS = {
-    1: WeatherParameters.ClearNoon,
-    2: WeatherParameters.CloudyNoon,
-    3: WeatherParameters.WetNoon,
-    4: WeatherParameters.WetCloudyNoon,
-    5: WeatherParameters.MidRainyNoon,
-    6: WeatherParameters.HardRainNoon,
-    7: WeatherParameters.SoftRainNoon,
-    8: WeatherParameters.ClearSunset,
-    9: WeatherParameters.CloudySunset,
-    10: WeatherParameters.WetSunset,
-    11: WeatherParameters.WetCloudySunset,
-    12: WeatherParameters.MidRainSunset,
-    13: WeatherParameters.HardRainSunset,
-    14: WeatherParameters.SoftRainSunset,
-}
+# don't run carla related code if testing on local machine because it is hard to install carla
+try:
+    import carla
+    from carla import ColorConverter
+    from carla import WeatherParameters
 
-TRAIN_WEATHERS = {
-        'clear_noon': WeatherParameters.ClearNoon, #1
-        'wet_noon': WeatherParameters.WetNoon, #3
-        'hardrain_noon': WeatherParameters.HardRainNoon, #6
-        'clear_sunset': WeatherParameters.ClearSunset, #8
-        }
+    PRESET_WEATHERS = {
+        1: WeatherParameters.ClearNoon,
+        2: WeatherParameters.CloudyNoon,
+        3: WeatherParameters.WetNoon,
+        4: WeatherParameters.WetCloudyNoon,
+        5: WeatherParameters.MidRainyNoon,
+        6: WeatherParameters.HardRainNoon,
+        7: WeatherParameters.SoftRainNoon,
+        8: WeatherParameters.ClearSunset,
+        9: WeatherParameters.CloudySunset,
+        10: WeatherParameters.WetSunset,
+        11: WeatherParameters.WetCloudySunset,
+        12: WeatherParameters.MidRainSunset,
+        13: WeatherParameters.HardRainSunset,
+        14: WeatherParameters.SoftRainSunset,
+    }
 
-WEATHERS = list(TRAIN_WEATHERS.values())
+    TRAIN_WEATHERS = {
+        'clear_noon': WeatherParameters.ClearNoon,  # 1
+        'wet_noon': WeatherParameters.WetNoon,  # 3
+        'hardrain_noon': WeatherParameters.HardRainNoon,  # 6
+        'clear_sunset': WeatherParameters.ClearSunset,  # 8
+    }
+
+    WEATHERS = list(TRAIN_WEATHERS.values())
+except:
+    pass
 
 
 BACKGROUND = [0, 47, 0]
@@ -664,8 +670,8 @@ class CarlaWrapper(object):
             self._actor_dict['sensor'].append(big_camera)
             
         rgb_camera_bp = self._blueprints.find('sensor.camera.rgb')
-        rgb_camera_bp.set_attribute('image_size_x', '384')
-        rgb_camera_bp.set_attribute('image_size_y', '160')
+        rgb_camera_bp.set_attribute('image_size_x', '{}'.format(RGB_IMG_WIDTH))
+        rgb_camera_bp.set_attribute('image_size_y', '{}'.format(RGB_IMG_HEIGHT))
         rgb_camera_bp.set_attribute('fov', '90')
         rgb_camera = self._world.spawn_actor(
             rgb_camera_bp,

@@ -1,4 +1,5 @@
 from pathlib import Path
+from models.common import RGB_IMG_WIDTH, RGB_IMG_HEIGHT
 
 import torch
 import lmdb
@@ -36,7 +37,7 @@ class BirdViewDataset(Dataset):
             self, dataset_path,
             img_size=320, crop_size=192, gap=5, n_step=5,
             crop_x_jitter=5, crop_y_jitter=5, angle_jitter=5,
-            down_ratio=4, gaussian_radius=1.0, max_frames=None):
+            down_ratio=4, gaussian_radius=1.0, max_frames=None, config=None):
 
         # These typically don't change.
         self.img_size = img_size
@@ -58,6 +59,8 @@ class BirdViewDataset(Dataset):
         self.idx_map = {}
 
         self.bird_view_transform = transforms.ToTensor()
+        self.img_transform = transforms.ToTensor()
+        self.config = config
 
         n_episodes = 0
 
@@ -94,7 +97,7 @@ class BirdViewDataset(Dataset):
 
         bird_view = np.frombuffer(lmdb_txn.get(('birdview_%04d'%index).encode()), np.uint8).reshape(320,320,7)
         measurement = np.frombuffer(lmdb_txn.get(('measurements_%04d'%index).encode()), np.float32)
-        rgb_image = None
+
 
         ox, oy, oz, ori_ox, ori_oy, vx, vy, vz, ax, ay, az, cmd, steer, throttle, brake, manual, gear  = measurement
         speed = np.linalg.norm([vx,vy,vz])
@@ -166,8 +169,26 @@ class BirdViewDataset(Dataset):
             regression_offset[i] = center - center_int
             indices[i] = center_int[1] * output_size + center_int[0]
 
+
+        if self.config['bev_net']:
+            image = np.fromstring(lmdb_txn.get(('rgb_%04d'%index).encode()), np.uint8).reshape(RGB_IMG_HEIGHT,RGB_IMG_WIDTH,3)
+            image = preprocess_img(image)
+
+            return bird_view, np.array(locations), cmd, speed, image
         return bird_view, np.array(locations), cmd, speed
 
+
+def preprocess_img(image):
+    image = image.astype(np.float32)
+    image = cv2.resize(image, (512, 512))
+    mean = np.array([0.485, 0.456, 0.406])
+    std = np.array([0.229, 0.224, 0.225])
+    # image = image.astype(np.float32)[:, :, ::-1]  # rgb or grb
+    image = image / 255.0
+    image -= mean
+    image /= std
+    image = image.transpose(2, 0, 1)
+    return image
 
 
 class BiasedBirdViewDataset(BirdViewDataset):
@@ -253,7 +274,7 @@ def get_birdview(
         dataset_dir,
         batch_size=32, num_workers=8, shuffle=True,
         crop_x_jitter=0, crop_y_jitter=0, angle_jitter=0, n_step=5, gap=5,
-        max_frames=None, cmd_biased=False):
+        max_frames=None, cmd_biased=False, config=None):
 
     def make_dataset(dir_name, is_train):
         _dataset_dir = str(Path(dataset_dir) / dir_name)
@@ -273,7 +294,7 @@ def get_birdview(
                 _dataset_dir, gap=gap, n_step=n_step,
                 crop_x_jitter=_crop_x_jitter, crop_y_jitter=_crop_y_jitter,
                 angle_jitter=_angle_jitter,
-                max_frames=_max_frames)
+                max_frames=_max_frames, config=config)
         data = Wrap(data, batch_size, _samples)
         data = _dataloader(data, batch_size, _num_workers)
 

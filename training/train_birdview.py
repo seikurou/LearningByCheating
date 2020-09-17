@@ -114,13 +114,14 @@ def train_or_eval(criterion, net, data, optim, is_train, config, is_first_epoch)
 
     tick = time.time()
 
-    for i, (birdview, location, command, speed) in iterator:
+    for i, (birdview, location, command, speed, img) in iterator:
         birdview = birdview.to(config['device'])
         command = one_hot(command).to(config['device'])
         speed = speed.to(config['device'])
         location = location.float().to(config['device'])
+        img = img.to(config['device'])
 
-        pred_location = net(birdview, speed, command)
+        pred_location = net(birdview, speed, command, img)
         loss = criterion(pred_location, location)
         loss_mean = loss.mean()
 
@@ -158,10 +159,10 @@ def train(config):
     bzu.log.init(config['log_dir'])
     import wandb
     name = os.path.basename(config['log_dir'])
-    wandb.init(project='bevseg-lbc', name=name, sync_tensorboard=True)
+    wandb.init(project='bevseg-lbc', name=name, sync_tensorboard=True, config=config)
     bzu.log.save_config(config)
 
-    data_train, data_val = load_data(**config['data_args'])
+    data_train, data_val = load_data(**config['data_args'], config=config)
     criterion = LocationLoss(w=192, h=192, choice='l1')
     net = BirdViewPolicyModelSS(config['model_args']['backbone'], config=config).to(config['device'])
     
@@ -202,8 +203,8 @@ if __name__ == '__main__':
     parser.add_argument('--max_frames', type=int, default=None)
     parser.add_argument('--cmd-biased', action='store_true', default=False)
     parser.add_argument('--resume', action='store_true')
-    parser.add_argument('--BEVSEG_network', type=str, default=None)
-
+    parser.add_argument('--bev_net', type=str, default=None)
+    parser.add_argument('--num_workers', type=int, default=8)
 
     # Optimizer.
     parser.add_argument('--lr', type=float, default=1e-4)
@@ -227,13 +228,15 @@ if __name__ == '__main__':
                 'angle_jitter': parsed.angle_jitter,
                 'max_frames': parsed.max_frames,
                 'cmd_biased': parsed.cmd_biased,
+                'num_workers': parsed.num_workers,
                 },
             'model_args': {
                 'model': 'birdview_dian',
                 'input_channel': 7,
                 'backbone': BACKBONE,
                 },
-            'BEVSEG_network': parsed.BEVSEG_network,
+            'bev_net': parsed.bev_net,
     }
+
 
     train(config)

@@ -59,20 +59,26 @@ class BirdViewPolicyModelSS(common.ResnetBase):
         self.all_branch = all_branch
 
         self.config = kwargs['config']
-        bev_name = self.config['BEVSEG_network']
+        bev_name = self.config['bev_net']
         if bev_name == 'vpn':
             from vpn.train_carla import parse_args_and_construct_model
-            vpn_args = ''' --fc-dim 256 --use-mask false --transform-type fc --input-resolution 512 --label-resolution 32 --n-views 1 --num-class 4  \
+            vpn_args = ''' --fc-dim 256 --use-mask false --transform-type fc --input-resolution 512 --label-resolution 32 --n-views 1 --num-class 7  \
             --use_depth False \
             --use_segmented False \
-            --SegSize 200 \
+            --SegSize 192 \
             --dataset bevseg \
             --multiclass_binary_entropy False \
-            --resume /data/ck/BESEG/baseline_vpn/runs/bevseg_4/_best.pth.tar \
             '''
-            self.bev = parse_args_and_construct_model(vpn_args)
+            self.bev_net = parse_args_and_construct_model(vpn_args)
 
-    def forward(self, bird_view, velocity, command):
+    def forward(self, bird_view, velocity, command, img=None):
+
+        if self.config['bev_net'] and self.config['bev_net'] != 'None':
+            assert type(img) != type(None), 'when using bev_net, we need the input img to generate bev'
+            bev = self.bev_net(img)
+            bev = nn.functional.interpolate(bev, size=192, mode='bilinear', align_corners=False)
+            bird_view = bev
+
         h = self.conv(bird_view)
         b, c, kh, kw = h.size()
 
@@ -119,6 +125,12 @@ class BirdViewAgent(Agent):
         birdview = common.crop_birdview(observations['birdview'], dx=-10)
         speed = np.linalg.norm(observations['velocity'])
         command = self.one_hot[int(observations['command']) - 1]
+        # import pdb;pdb.set_trace()
+        img = np.uint8(observations['rgb'])
+        from bird_view.utils.datasets.birdview_lmdb import preprocess_img
+        img = preprocess_img(img)
+        img = torch.FloatTensor([img]).to(self.device)
+
 
         with torch.no_grad():
             _birdview = self.transform(birdview).to(self.device).unsqueeze(0)
@@ -128,7 +140,7 @@ class BirdViewAgent(Agent):
             if self.model.all_branch:
                 _locations, _ = self.model(_birdview, _speed, _command)
             else:
-                _locations = self.model(_birdview, _speed, _command)
+                _locations = self.model(_birdview, _speed, _command, img=img)
             _locations = _locations.squeeze().detach().cpu().numpy()
     
         _map_locations = _locations

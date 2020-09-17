@@ -21,9 +21,10 @@ export PYTHONPATH="$CODE/BEVSEG/lbc/PythonAPI:$PYTHONPATH"
 ##################################################
 
 NAME=original_teacher
+NAME=teacher_3
 #NAME=teacher_noshift_0
 
-python $CODE/BEVSEG/lbc/view_benchmark_results.py /data/ck/BEVSEG/lbc/ckpts/$NAME/benchmark/model-32
+#python $CODE/BEVSEG/lbc/view_benchmark_results.py /data/ck/BEVSEG/lbc/ckpts/$NAME/benchmark/model-32
 python $CODE/BEVSEG/lbc/view_benchmark_results.py /data/ck/BEVSEG/lbc/ckpts/$NAME/benchmark/model-64
 
 << sample_cmd

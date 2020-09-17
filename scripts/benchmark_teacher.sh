@@ -11,7 +11,8 @@
 #SBATCH  --gres gpu:1
 
 cd $CODE/BEVSEG/lbc
-export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-3}
+export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-5}
+#export CUDA_VISIBLE_DEVICES=5
 source $PYTHON_ENV/conda_lbc/bin/activate
 conda activate py35_10
 export PYTHONPATH="$CODE/BEVSEG/lbc/PythonAPI:$PYTHONPATH"
@@ -21,14 +22,23 @@ export PYTHONPATH="$CODE/BEVSEG/lbc/PythonAPI:$PYTHONPATH"
 ##################################################
 
 NAME=original_teacher
+NAME=teacher_3
 #NAME=teacher_noshift_0
+NAME=e2e_bevseg_vpn_0
+NAME=e2e_bevseg_vpn_2
 
-python benchmark_agent.py --suite=regular \
+python benchmark_agent.py \
 --model-path=./ckpts/$NAME/model-64.th \
 --max-run 25 \
 --port 3000 \
+--show \
+--suite=dense \
+#--suite=empty \
+#--model-path=./ckpts/$NAME/model-32.th \
+#--model-path=./ckpts/$NAME/model-64.th \
+#--port 2000 \
 
 << sample_cmd
-#bash ~/BEVSEG/lbc/scripts/.sh
 cksbatch --nodelist=freddie ~/BEVSEG/lbc/scripts/benchmark_teacher.sh
+bash ~/BEVSEG/lbc/scripts/benchmark_teacher.sh
 sample_cmd

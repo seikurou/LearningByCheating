@@ -1,3 +1,6 @@
+import sys
+import glob
+sys.path.append(glob.glob('./bird_view')[0])
 import argparse
 import time
 
@@ -33,7 +36,7 @@ def _agent_factory_hack(model_path, config, autopilot):
 
     model_class, agent_class = model_to_class[model_name]
 
-    model = model_class(**config['model_args'])
+    model = model_class(**config['model_args'], config=config)
     model.load_state_dict(torch.load(str(model_path)))
     model.eval()
 

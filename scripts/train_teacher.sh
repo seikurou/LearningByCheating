@@ -11,7 +11,7 @@
 #SBATCH  --gres gpu:1
 
 cd $CODE/BEVSEG/lbc
-export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-3}
+export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-4}
 source $PYTHON_ENV/conda_lbc/bin/activate
 conda activate py35_10
 export PYTHONPATH=$CODE/network_library/:$PYTHONPATH
@@ -26,18 +26,26 @@ NAME=teacher_noshift_0
 NAME=teacher_norot_0
 NAME=teacher_noaug_0
 NAME=debug
-NAME=teacher_3
 NAME=e2e_bevseg_vpn_2
+NAME=pretrained_vpn_e2e_3
+#NAME=pretrained_vpn_e2e_unfrozentrain_3
+#NAME=teacher_noangle_5
+#NAME=teacher_noaug_5
+#NAME=teacher_noshift_6
+#NAME=teacher_7
+NAME=pretrained_vpn_frozen_4
 
 mkdir -p ../ckpts/$NAME
 #python train_birdview.py --dataset_dir=../data/original_data --log_dir=../ckpts/$NAME \
 python train_birdview.py --dataset_dir=../data/1280res_150ksamples --log_dir=../ckpts/$NAME \
---bev_net vpn \
 --batch_size 20 \
---num_workers 5 \
---angle_jitter 0 \
+--num_workers 3 \
 --x_jitter 0 \
 --y_jitter 0 \
+--angle_jitter 0 \
+--bev_net vpn \
+--bev_channel 3 \
+--bev_freeze \
 
 
 

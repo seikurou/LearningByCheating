@@ -62,16 +62,20 @@ class BirdViewPolicyModelSS(common.ResnetBase):
         bev_name = self.config['bev_net']
         if bev_name == 'vpn':
             from vpn.train_carla import parse_args_and_construct_model
-            vpn_args = ''' --fc-dim 256 --use-mask false --transform-type fc --input-resolution 512 --label-resolution 32 --n-views 1 --num-class 7  \
+            vpn_args = ''' --fc-dim 256 --use-mask false --transform-type fc --input-resolution 512 --label-resolution 32 --n-views 1 --num-class {bev_channel}  \
             --use_depth False \
             --use_segmented False \
             --SegSize 192 \
             --dataset bevseg \
             --multiclass_binary_entropy False \
-            '''
+            --resume {pretrained} \
+            '''.format(
+                bev_channel=input_channel,
+                pretrained='/data/ck/BESEG/baseline_vpn/runs/lbc_2/_best.pth.tar'
+            )
             self.bev_net = parse_args_and_construct_model(vpn_args)
 
-    def forward(self, bird_view, velocity, command, img=None):
+    def forward(self, bird_view, velocity, command, img=None, return_bev=False):
 
         if self.config['bev_net'] and self.config['bev_net'] != 'None':
             assert type(img) != type(None), 'when using bev_net, we need the input img to generate bev'
@@ -92,11 +96,13 @@ class BirdViewPolicyModelSS(common.ResnetBase):
         location_preds = torch.stack(location_preds, dim=1)
             
         location_pred = common.select_branch(location_preds, command)
-        
+
+        ret = [location_pred]
         if self.all_branch:
-            return location_pred, location_preds
-        
-        return location_pred
+            ret.append(location_preds)
+        if return_bev:
+            ret.append(bird_view)
+        return ret
 
 
 class BirdViewAgent(Agent):
@@ -125,7 +131,6 @@ class BirdViewAgent(Agent):
         birdview = common.crop_birdview(observations['birdview'], dx=-10)
         speed = np.linalg.norm(observations['velocity'])
         command = self.one_hot[int(observations['command']) - 1]
-        # import pdb;pdb.set_trace()
         img = np.uint8(observations['rgb'])
         from bird_view.utils.datasets.birdview_lmdb import preprocess_img
         img = preprocess_img(img)
@@ -136,11 +141,11 @@ class BirdViewAgent(Agent):
             _birdview = self.transform(birdview).to(self.device).unsqueeze(0)
             _speed = torch.FloatTensor([speed]).to(self.device)
             _command = command.to(self.device).unsqueeze(0)
-            
+
             if self.model.all_branch:
                 _locations, _ = self.model(_birdview, _speed, _command)
             else:
-                _locations = self.model(_birdview, _speed, _command, img=img)
+                _locations, bev = self.model(_birdview, _speed, _command, img=img, return_bev=True)
             _locations = _locations.squeeze().detach().cpu().numpy()
     
         _map_locations = _locations
@@ -192,6 +197,7 @@ class BirdViewAgent(Agent):
         self.debug['locations_birdview'] = _locations[:,::-1].astype(int)
         self.debug['target'] = closest
         self.debug['target_speed'] = target_speed
+        self.debug['bev'] = bev
 
         control = self.postprocess(steer, throttle, brake)
         if teaching:

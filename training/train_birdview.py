@@ -108,6 +108,11 @@ def train_or_eval(criterion, net, data, optim, is_train, config, is_first_epoch)
         desc = 'Val'
         net.eval()
 
+    if config['bev_freeze']:
+        net.bev_net.eval()
+        for p in net.bev_net.parameters():
+            p.requires_grad = False
+
     total = 10 if is_first_epoch else len(data)
     iterator_tqdm = tqdm.tqdm(data, desc=desc, total=total)
     iterator = enumerate(iterator_tqdm)
@@ -164,7 +169,7 @@ def train(config):
 
     data_train, data_val = load_data(**config['data_args'], config=config)
     criterion = LocationLoss(w=192, h=192, choice='l1')
-    net = BirdViewPolicyModelSS(config['model_args']['backbone'], config=config).to(config['device'])
+    net = BirdViewPolicyModelSS(**config['model_args'], config=config).to(config['device'])
     
     if config['resume']:
         log_dir = Path(config['log_dir'])
@@ -203,8 +208,11 @@ if __name__ == '__main__':
     parser.add_argument('--max_frames', type=int, default=None)
     parser.add_argument('--cmd-biased', action='store_true', default=False)
     parser.add_argument('--resume', action='store_true')
-    parser.add_argument('--bev_net', type=str, default=None)
     parser.add_argument('--num_workers', type=int, default=8)
+
+    parser.add_argument('--bev_net', type=str, default=None)
+    parser.add_argument('--bev_freeze', action='store_true')
+    parser.add_argument('--bev_channel', type=int, default=7)
 
     # Optimizer.
     parser.add_argument('--lr', type=float, default=1e-4)
@@ -232,10 +240,11 @@ if __name__ == '__main__':
                 },
             'model_args': {
                 'model': 'birdview_dian',
-                'input_channel': 7,
+                'input_channel': parsed.bev_channel,
                 'backbone': BACKBONE,
                 },
             'bev_net': parsed.bev_net,
+            'bev_freeze': parsed.bev_freeze,
     }
 
 

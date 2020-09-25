@@ -13,8 +13,8 @@ from torchvision import transforms
 import math
 import random
 
-import augmenter
-from models.common import RGB_IMG_WIDTH, RGB_IMG_HEIGHT
+import bird_view.augmenter
+from bird_view.models.common import RGB_IMG_WIDTH, RGB_IMG_HEIGHT
 
 PIXEL_OFFSET = 10
 PIXELS_PER_METER = 5

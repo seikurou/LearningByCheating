@@ -1,5 +1,5 @@
 from pathlib import Path
-from models.common import RGB_IMG_WIDTH, RGB_IMG_HEIGHT
+from bird_view.models.common import RGB_IMG_WIDTH, RGB_IMG_HEIGHT
 
 import torch
 import lmdb
@@ -10,8 +10,8 @@ import cv2
 
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
-from utils.image_utils import draw_msra_gaussian, gaussian_radius
-from utils.carla_utils import visualize_birdview
+# from utils.image_utils import draw_msra_gaussian, gaussian_radius
+# from utils.carla_utils import visualize_birdview
 
 import math
 import random
@@ -152,30 +152,29 @@ class BirdViewDataset(Dataset):
 
         bird_view = self.bird_view_transform(bird_view)
 
-        # Create mask
-        output_size = self.crop_size // self.down_ratio
-        heatmap_mask = np.zeros((self.n_step, output_size, output_size), dtype=np.float32)
-        regression_offset = np.zeros((self.n_step,2), np.float32)
-        indices = np.zeros((self.n_step), dtype=np.int64)
+        # the original code actually doesn't return these extra info
+        # # Create mask
+        # output_size = self.crop_size // self.down_ratio
+        # heatmap_mask = np.zeros((self.n_step, output_size, output_size), dtype=np.float32)
+        # regression_offset = np.zeros((self.n_step,2), np.float32)
+        # indices = np.zeros((self.n_step), dtype=np.int64)
+        #
+        # for i, (pixel_x, pixel_y) in enumerate(locations):
+        #     center = np.array(
+        #             [pixel_x / self.down_ratio, pixel_y / self.down_ratio],
+        #             dtype=np.float32)
+        #     center = np.clip(center, 0, output_size-1)
+        #     center_int = np.rint(center)
+        #
+        #     draw_msra_gaussian(heatmap_mask[i], center_int, self.gaussian_radius)
+        #     regression_offset[i] = center - center_int
+        #     indices[i] = center_int[1] * output_size + center_int[0]
 
-        for i, (pixel_x, pixel_y) in enumerate(locations):
-            center = np.array(
-                    [pixel_x / self.down_ratio, pixel_y / self.down_ratio],
-                    dtype=np.float32)
-            center = np.clip(center, 0, output_size-1)
-            center_int = np.rint(center)
 
-            draw_msra_gaussian(heatmap_mask[i], center_int, self.gaussian_radius)
-            regression_offset[i] = center - center_int
-            indices[i] = center_int[1] * output_size + center_int[0]
+        image = np.fromstring(lmdb_txn.get(('rgb_%04d'%index).encode()), np.uint8).reshape(RGB_IMG_HEIGHT,RGB_IMG_WIDTH,3)
+        image = preprocess_img(image)
 
-
-        if self.config['bev_net']:
-            image = np.fromstring(lmdb_txn.get(('rgb_%04d'%index).encode()), np.uint8).reshape(RGB_IMG_HEIGHT,RGB_IMG_WIDTH,3)
-            image = preprocess_img(image)
-
-            return bird_view, np.array(locations), cmd, speed, image
-        return bird_view, np.array(locations), cmd, speed
+        return bird_view, np.array(locations), cmd, speed, image
 
 
 def preprocess_img(image):

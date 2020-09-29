@@ -18,18 +18,20 @@ export PYTHONPATH="$CODE/BEVSEG/lbc/PythonAPI:$PYTHONPATH"
 ##################################################
 
 # in one of the tab, run the simulator
-export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
+export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-5}
 #DISPLAY= simulator/CarlaUE4.sh -opengl -fps=10 -benchmark  -carla-world-port=2000
 #DISPLAY= simulator/CarlaUE4.sh -opengl -fps=10 -benchmark  -carla-world-port=3000
 #DISPLAY= simulator/CarlaUE4.sh -opengl -fps=10 -benchmark  -carla-world-port=4000
 #CUDA_VISIBLE_DEVICES=1 ./CarlaUE4.sh -fps=10 -benchmark  # this is untested
 
-mkdir -p ./data/1280res_150ksamples/
-python data_collector.py --dataset_path=data/1280res_150ksamples \
---frames_per_episode 2000 \
+NAME=1280res_150ksamples
+NAME=debug
+NAME=1280res_150ksamples_noise
+mkdir -p ./data/$NAME/
+python data_collector.py --dataset_path=data/$NAME \
+--frames_per_episode 1000 \
 --n_episodes 150 \
 --nodisplay \
-
 
 << sample_cmd
 bash ~/BEVSEG/lbc/scripts/collect_data.sh

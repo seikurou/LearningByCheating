@@ -119,18 +119,25 @@ class NoisyAgent(RoamingAgentMine):
     """
     Each parameter is in units of frames.
     State can be "drive" or "noise".
+
+    Args:
+        noise(): should be a function that takes in how many steps have passed since switching to this state,
+            and return radian in steering angle. Or None if not using noise.
     """
     def __init__(self, env, noise=None):
         super().__init__(env._player, resolution=1, threshold_before=7.5, threshold_after=5.)
-
-        # self.params = {'drive': (100, 'noise'), 'noise': (10, 'drive')}
-        self.params = {'drive': (100, 'drive')}
 
         self.steps = 0
         self.state = 'drive'
         self.noise_steer = 0
         self.last_throttle = 0
-        self.noise_func = noise if noise else lambda: np.random.uniform(-0.25, 0.25)
+
+        if noise:
+            self.params = {'drive': (40, 'noise'), 'noise': (10, 'drive')}
+        else:
+            self.params = {'drive': (100, 'drive')}
+        self.noise_func = noise
+        # print("state switched!")
 
         self.speed_control = PIDController(K_P=0.5, K_I=0.5/20, K_D=0.1)
         self.turn_control = PIDController(K_P=0.75, K_I=1.0/20, K_D=0.0)
@@ -147,6 +154,8 @@ class NoisyAgent(RoamingAgentMine):
         control.manual_gear_shift = False
 
         if self.state == 'noise':
+            if self.noise_func:
+                self.noise_steer = self.noise_func(self.steps, num_steps)
             control.steer = self.noise_steer
             control.throttle = self.last_throttle
         else:
@@ -155,9 +164,9 @@ class NoisyAgent(RoamingAgentMine):
             control.brake = real_control.brake
 
         if self.steps == num_steps:
+            print("state switched!", next_state)
             self.steps = 0
             self.state = next_state
-            self.noise_steer = self.noise_func()
             self.last_throttle = control.throttle
 
         self.debug = {
@@ -183,7 +192,24 @@ def get_episode(env, params):
     env.init(**env_params)
     env.success_dist = 5.0
 
-    agent = NoisyAgent(env)
+    noise_func = None
+    def noise_func(cur_step, total_step):
+        base_noise = np.random.uniform(-0.05, 0.05)
+        if cur_step < total_step / 2:
+            increasing_noise = 3 / (total_step / 2) * cur_step
+            return base_noise + increasing_noise
+        else:
+            decreasing_noise = 3 - 3 / (total_step / 2) * (cur_step - total_step / 2)
+            return base_noise + decreasing_noise
+
+    buffer = 0
+    def noise_func(cur_step, total_step):
+        if cur_step == 1:
+            nonlocal buffer
+            buffer = np.random.uniform(-0.15, 0.15)
+            buffer += np.sign(buffer) * 0.1
+        return buffer
+    agent = NoisyAgent(env, noise=noise_func)
     agent.set_route(env._start_pose.location, env._target_pose.location)
 
     # Real loop.

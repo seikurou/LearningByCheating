@@ -18,6 +18,7 @@ export PYTHONPATH="$CODE/BEVSEG/lbc/PythonAPI:$PYTHONPATH"
 ##################################################
 
 # in one of the tab, run the simulator
+export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
 #DISPLAY= simulator/CarlaUE4.sh -opengl -fps=10 -benchmark  -carla-world-port=2000
 #DISPLAY= simulator/CarlaUE4.sh -opengl -fps=10 -benchmark  -carla-world-port=3000
 #DISPLAY= simulator/CarlaUE4.sh -opengl -fps=10 -benchmark  -carla-world-port=4000

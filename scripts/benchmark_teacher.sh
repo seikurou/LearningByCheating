@@ -29,13 +29,16 @@ NAME=e2e_bevseg_vpn_2
 NAME=pretrained_vpn_e2e_unfrozentrain_3
 #NAME=pretrained_vpn_e2e_3
 #NAME=teacher_noaug_4
+NAME=pretrained_vpn_e2e_3
+NAME=pretrained_vpn_frozen_7
+NAME=pretrained_vpn_unfrozen_8
 
 python benchmark_agent.py \
---model-path=./ckpts/$NAME/model-4.th \
+--model-path=./ckpts/$NAME/model-32.th \
 --max-run 25 \
 --port 3000 \
---show \
 --suite=empty \
+--show \
 #--suite=dense \
 #--model-path=./ckpts/$NAME/model-32.th \
 #--model-path=./ckpts/$NAME/model-64.th \

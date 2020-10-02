@@ -13,6 +13,7 @@ import torchvision
 
 from .map_utils import Wrapper as map_utils
 from models.common import RGB_IMG_WIDTH, RGB_IMG_HEIGHT
+import cv2
 
 
 # don't run carla related code if testing on local machine because it is hard to install carla
@@ -64,6 +65,7 @@ COLORS = [
 
 TOWNS = ['Town01', 'Town02', 'Town03', 'Town04']
 VEHICLE_NAME = 'vehicle.ford.mustang'
+KM_TO_CM = 100000
 
 def is_within_distance_ahead(target_location, current_location, orientation, max_distance, degree=60):
     u = np.array([
@@ -120,7 +122,18 @@ def get_birdview(observations):
 
 def process(observations):
     result = dict()
-    result['rgb'] = observations['rgb'].copy()
+    result['rgb'] = cv2.imencode('.png', observations['rgb'][..., ::-1])[1].flatten()
+    result['rgb_left'] = cv2.imencode('.png', observations['rgb_left'][..., ::-1])[1].flatten()
+    result['rgb_right'] = cv2.imencode('.png', observations['rgb_right'][..., ::-1])[1].flatten()
+
+    depth = observations['depth']
+    depth = depth.astype('float32')
+    depth = KM_TO_CM * ((depth[:, :, 0] + depth[:, :, 1] * 256 + depth[:, :, 2] * 256 * 256) / (256 * 256 * 256 - 1))
+    depth = np.clip(depth, 0, 65535)
+    depth = depth.astype('uint16')
+    result['depth'] = cv2.imencode('.png', depth)[1].flatten()
+
+    result['semantic'] = cv2.imencode('.png', observations['semantic'][..., 0])[1].flatten()
     result['birdview'] = observations['birdview'].copy()
     result['collided'] = observations['collided']
 
@@ -390,6 +403,18 @@ class CarlaWrapper(object):
         self.rgb_image = None
         self._big_cam_queue = None
         self.big_cam_image = None
+
+        self._rgb_left_queue = None
+        self.rgb_left_image = None
+
+        self._rgb_right_queue = None
+        self.rgb_right_image = None
+
+        self._depth_queue = None
+        self.depth_image = None
+
+        self._semantic_queue = None
+        self.semantic_image = None
         
         self.seed = seed
 
@@ -570,7 +595,19 @@ class CarlaWrapper(object):
         # Put here for speed (get() busy polls queue).
         while self.rgb_image is None or self._rgb_queue.qsize() > 0:
             self.rgb_image = self._rgb_queue.get()
-        
+
+        while self.semantic_image is None or self._semantic_queue.qsize() > 0:
+            self.semantic_image = self._semantic_queue.get()
+
+        while self.rgb_left_image is None or self._rgb_left_queue.qsize() > 0:
+            self.rgb_left_image = self._rgb_left_queue.get()
+
+        while self.rgb_right_image is None or self._rgb_right_queue.qsize() > 0:
+            self.rgb_right_image = self._rgb_right_queue.get()
+
+        while self.depth_image is None or self._depth_queue.qsize() > 0:
+            self.depth_image = self._depth_queue.get()
+
         if self._big_cam:
             while self.big_cam_image is None or self._big_cam_queue.qsize() > 0:
                 self.big_cam_image = self._big_cam_queue.get()
@@ -583,6 +620,10 @@ class CarlaWrapper(object):
         # print ("%.3f, %.3f"%(self.rgb_image.timestamp, self._world.get_snapshot().timestamp.elapsed_seconds))
         result.update({
             'rgb': carla_img_to_np(self.rgb_image),
+            'rgb_left': carla_img_to_np(self.rgb_left_image),
+            'rgb_right': carla_img_to_np(self.rgb_right_image),
+            'depth': carla_img_to_np(self.depth_image),
+            'semantic': carla_img_to_np(self.semantic_image),
             'birdview': get_birdview(result),
             'collided': self.collided
             })
@@ -639,6 +680,22 @@ class CarlaWrapper(object):
         if self._big_cam_queue:
             with self._big_cam_queue.mutex:
                 self._big_cam_queue.queue.clear()
+
+        if self._rgb_left_queue:
+            with self._rgb_left_queue.mutex:
+                self._rgb_left_queue.queue.clear()
+
+        if self._rgb_right_queue:
+            with self._rgb_right_queue.mutex:
+                self._rgb_right_queue.queue.clear()
+
+        if self._depth_queue:
+            with self._depth_queue.mutex:
+                self._depth_queue.queue.clear()
+
+        if self._semantic_queue:
+            with self._semantic_queue.mutex:
+                self._semantic_queue.queue.clear()
     
     @property
     def pedestrians(self):
@@ -655,6 +712,10 @@ class CarlaWrapper(object):
         """
         # Camera.
         self._rgb_queue = queue.Queue()
+        self._rgb_left_queue = queue.Queue()
+        self._rgb_right_queue = queue.Queue()
+        self._depth_queue = queue.Queue()
+        self._semantic_queue = queue.Queue()
 
         if self._big_cam:
             self._big_cam_queue = queue.Queue()
@@ -668,7 +729,10 @@ class CarlaWrapper(object):
                 attach_to=self._player)
             big_camera.listen(self._big_cam_queue.put)
             self._actor_dict['sensor'].append(big_camera)
-            
+
+        ################
+        # RGB CAMERA
+        ################
         rgb_camera_bp = self._blueprints.find('sensor.camera.rgb')
         rgb_camera_bp.set_attribute('image_size_x', '{}'.format(RGB_IMG_WIDTH))
         rgb_camera_bp.set_attribute('image_size_y', '{}'.format(RGB_IMG_HEIGHT))
@@ -680,7 +744,66 @@ class CarlaWrapper(object):
 
         rgb_camera.listen(self._rgb_queue.put)
         self._actor_dict['sensor'].append(rgb_camera)
-        
+
+        ################
+        # RGB LEFT CAMERA
+        ################
+        rgb_left_camera_bp = self._blueprints.find('sensor.camera.rgb')
+        rgb_left_camera_bp.set_attribute('image_size_x', '{}'.format(RGB_IMG_WIDTH))
+        rgb_left_camera_bp.set_attribute('image_size_y', '{}'.format(RGB_IMG_HEIGHT))
+        rgb_left_camera_bp.set_attribute('fov', '90')
+        rgb_left_camera = self._world.spawn_actor(
+            rgb_left_camera_bp,
+            carla.Transform(carla.Location(x=2.0, y=-1.0, z=1.4), carla.Rotation(pitch=0)),
+            attach_to=self._player)
+
+        rgb_left_camera.listen(self._rgb_left_queue.put)
+        self._actor_dict['sensor'].append(rgb_left_camera)
+
+        ################
+        # RGB RIGHT CAMERA
+        ################
+        rgb_right_camera_bp = self._blueprints.find('sensor.camera.rgb')
+        rgb_right_camera_bp.set_attribute('image_size_x', '{}'.format(RGB_IMG_WIDTH))
+        rgb_right_camera_bp.set_attribute('image_size_y', '{}'.format(RGB_IMG_HEIGHT))
+        rgb_right_camera_bp.set_attribute('fov', '90')
+        rgb_right_camera = self._world.spawn_actor(
+            rgb_right_camera_bp,
+            carla.Transform(carla.Location(x=2.0, y=1.0, z=1.4), carla.Rotation(pitch=0)),
+            attach_to=self._player)
+
+        rgb_right_camera.listen(self._rgb_right_queue.put)
+        self._actor_dict['sensor'].append(rgb_right_camera)
+
+        ################
+        # DEPTH CAMERA
+        ################
+        depth_camera_bp = self._blueprints.find('sensor.camera.depth')
+        depth_camera_bp.set_attribute('image_size_x', '{}'.format(RGB_IMG_WIDTH))
+        depth_camera_bp.set_attribute('image_size_y', '{}'.format(RGB_IMG_HEIGHT))
+        depth_camera_bp.set_attribute('fov', '90')
+        depth_camera = self._world.spawn_actor(
+            depth_camera_bp,
+            carla.Transform(carla.Location(x=2.0, z=1.4), carla.Rotation(pitch=0)),
+            attach_to=self._player)
+
+        depth_camera.listen(self._depth_queue.put)
+        self._actor_dict['sensor'].append(depth_camera)
+
+        ################
+        # SEMANTIC CAMERA
+        ################
+        semantic_camera_bp = self._blueprints.find('sensor.camera.semantic_segmentation')
+        semantic_camera_bp.set_attribute('image_size_x', '{}'.format(RGB_IMG_WIDTH))
+        semantic_camera_bp.set_attribute('image_size_y', '{}'.format(RGB_IMG_HEIGHT))
+        semantic_camera_bp.set_attribute('fov', '90')
+        semantic_camera = self._world.spawn_actor(
+            semantic_camera_bp,
+            carla.Transform(carla.Location(x=2.0, z=1.4), carla.Rotation(pitch=0)),
+            attach_to=self._player)
+
+        semantic_camera.listen(self._semantic_queue.put)
+        self._actor_dict['sensor'].append(semantic_camera)
         
 
         # Collisions.

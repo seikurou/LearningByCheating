@@ -275,6 +275,18 @@ def main(params):
                             ('rgb_%04d' % i).encode(),
                             np.ascontiguousarray(x['rgb']).astype(np.uint8))
                     txn.put(
+                        ('rgb_left_%04d' % i).encode(),
+                        np.ascontiguousarray(x['rgb_left']).astype(np.uint8))
+                    txn.put(
+                        ('rgb_right_%04d' % i).encode(),
+                        np.ascontiguousarray(x['rgb_right']).astype(np.uint8))
+                    txn.put(
+                        ('semantic_%04d' % i).encode(),
+                        np.ascontiguousarray(x['semantic']).astype(np.uint8))
+                    txn.put(
+                        ('depth_%04d' % i).encode(),
+                        np.ascontiguousarray(x['depth']).astype(np.uint8))
+                    txn.put(
                             ('birdview_%04d' % i).encode(),
                             np.ascontiguousarray(x['birdview']).astype(np.uint8))
                     txn.put(

@@ -6,6 +6,7 @@ import random
 
 import numpy as np
 import math
+import cv2
 
 # import needed due to https://github.com/pytorch/pytorch/issues/36034
 import torchvision
@@ -58,6 +59,8 @@ COLORS = [
 
 TOWNS = ['Town01', 'Town02', 'Town03', 'Town04']
 VEHICLE_NAME = 'vehicle.ford.mustang'
+KM_TO_CM = 100000
+
 
 def is_within_distance_ahead(target_location, current_location, orientation, max_distance, degree=60):
     u = np.array([
@@ -114,7 +117,24 @@ def get_birdview(observations):
 
 def process(observations):
     result = dict()
-    result['rgb'] = observations['rgb'].copy()
+
+    rgb = observations['rgb']
+    depth = observations['depth']
+    semantic = observations['semantic']
+
+    depth = depth.astype('float32')
+    depth = KM_TO_CM * ((depth[:, :, 0] + depth[:, :, 1] * 256 + depth[:, :, 2] * 256 * 256) / (256 * 256 * 256 - 1))
+    depth = np.clip(depth, 0, 65535)
+    depth = depth.astype('uint16')
+    depth = cv2.imencode('.png', depth)[1].flatten()
+
+    rgb = cv2.imencode('.png', rgb[..., ::-1])[1].flatten()
+
+    semantic = cv2.imencode('.png', semantic[..., 0])[1].flatten()
+
+    result['depth'] = depth
+    result['rgb'] = rgb
+    result['semantic'] = semantic
     result['birdview'] = observations['birdview'].copy()
     result['collided'] = observations['collided']
 
@@ -385,7 +405,11 @@ class CarlaWrapper(object):
         self.rgb_image = None
         self._big_cam_queue = None
         self.big_cam_image = None
-        
+        self._depth_queue = None
+        self.depth_image = None
+        self._semantic_queue = None
+        self.semantic_image = None
+
         self.seed = seed
 
         self._respawn_peds = respawn_peds
@@ -565,7 +589,13 @@ class CarlaWrapper(object):
         # Put here for speed (get() busy polls queue).
         while self.rgb_image is None or self._rgb_queue.qsize() > 0:
             self.rgb_image = self._rgb_queue.get()
-        
+
+        while self.depth_image is None or self._depth_queue.qsize() > 0:
+            self.depth_image = self._depth_queue.get()
+
+        while self.semantic_image is None or self._semantic_queue.qsize() > 0:
+            self.semantic_image = self._semantic_queue.get()
+
         if self._big_cam:
             while self.big_cam_image is None or self._big_cam_queue.qsize() > 0:
                 self.big_cam_image = self._big_cam_queue.get()
@@ -577,7 +607,9 @@ class CarlaWrapper(object):
         result.update(map_utils.get_observations())
         # print ("%.3f, %.3f"%(self.rgb_image.timestamp, self._world.get_snapshot().timestamp.elapsed_seconds))
         result.update({
+            'depth': carla_img_to_np(self.depth_image),
             'rgb': carla_img_to_np(self.rgb_image),
+            'semantic': carla_img_to_np(self.semantic_image),
             'birdview': get_birdview(result),
             'collided': self.collided
             })
@@ -650,6 +682,8 @@ class CarlaWrapper(object):
         """
         # Camera.
         self._rgb_queue = queue.Queue()
+        self._depth_queue = queue.Queue()
+        self._semantic_queue = queue.Queue()
 
         if self._big_cam:
             self._big_cam_queue = queue.Queue()
@@ -665,8 +699,8 @@ class CarlaWrapper(object):
             self._actor_dict['sensor'].append(big_camera)
             
         rgb_camera_bp = self._blueprints.find('sensor.camera.rgb')
-        rgb_camera_bp.set_attribute('image_size_x', '384')
-        rgb_camera_bp.set_attribute('image_size_y', '160')
+        rgb_camera_bp.set_attribute('image_size_x', '1250')
+        rgb_camera_bp.set_attribute('image_size_y', '512')
         rgb_camera_bp.set_attribute('fov', '90')
         rgb_camera = self._world.spawn_actor(
             rgb_camera_bp,
@@ -675,8 +709,28 @@ class CarlaWrapper(object):
 
         rgb_camera.listen(self._rgb_queue.put)
         self._actor_dict['sensor'].append(rgb_camera)
-        
-        
+
+        depth_camera_bp = self._blueprints.find('sensor.camera.depth')
+        depth_camera_bp.set_attribute('image_size_x', '1250')
+        depth_camera_bp.set_attribute('image_size_y', '512')
+        depth_camera_bp.set_attribute('fov', '90')
+        depth_camera = self._world.spawn_actor(
+            depth_camera_bp,
+            carla.Transform(carla.Location(x=2.0, z=1.4), carla.Rotation(pitch=0)),
+            attach_to=self._player)
+        depth_camera.listen(self._depth_queue.put)
+        self._actor_dict['sensor'].append(depth_camera)
+
+        semantic_camera_bp = self._blueprints.find('sensor.camera.semantic_segmentation')
+        semantic_camera_bp.set_attribute('image_size_x', '1250')
+        semantic_camera_bp.set_attribute('image_size_y', '512')
+        semantic_camera_bp.set_attribute('fov', '90')
+        semantic_camera = self._world.spawn_actor(
+            semantic_camera_bp,
+            carla.Transform(carla.Location(x=2.0, z=1.4), carla.Rotation(pitch=0)),
+            attach_to=self._player)
+        semantic_camera.listen(self._semantic_queue.put)
+        self._actor_dict['sensor'].append(semantic_camera)
 
         # Collisions.
         self.collided = False

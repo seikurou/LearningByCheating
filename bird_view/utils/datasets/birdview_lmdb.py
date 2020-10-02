@@ -89,33 +89,59 @@ class BirdViewDataset(Dataset):
         return len(self.file_map)
 
     def __getitem__(self, idx):
+        """
+        In here, y is the rows, and x is the cols.
+
+        Data Augmentation:
+        1. random rotation by [-5, 5] degree
+        2. random cropping. This is pretty complicated and quite hand engineered.
+
+        For col axis, vehicle pos is dead center. We first shift this by random s pixels, where s in [-5, 5].
+        Then we crop out [-self.crop_size // 2, self.crop_size // 2] around this point.
+
+        For row axis, first note that the central bottom of the bev image is the position of the vehicle's
+        center, which is located inside the vehicle. The central bottom is NOT the position of the front camera.
+
+        First, the crop's bottom is hand engineered to be at row 260, which is 12 meters ahead of the vehicle pos.
+        My guess is this allows the car to see farther away.
+
+        Then we first shift the crop center upward by PIXEL_OFFSET (10 pixels = 2meters) amount. We add more
+        translation noise.
+
+
+
+        Args:
+            idx ():
+
+        Returns:
+
+        """
         lmdb_txn = self.file_map[idx]
         index = self.idx_map[idx]
 
-        bird_view = np.frombuffer(lmdb_txn.get(('birdview_%04d'%index).encode()), np.uint8).reshape(320,320,7)
+        bird_view = np.frombuffer(lmdb_txn.get(('birdview_%04d'%index).encode()), np.uint8).reshape(200,200,7)
         measurement = np.frombuffer(lmdb_txn.get(('measurements_%04d'%index).encode()), np.float32)
         rgb_image = None
 
-        ox, oy, oz, ori_ox, ori_oy, vx, vy, vz, ax, ay, az, cmd, steer, throttle, brake, manual, gear  = measurement
+        ox, oy, oz, ori_ox, ori_oy, vx, vy, vz, ax, ay, az, cmd, steer, throttle, brake, manual, gear = measurement
         speed = np.linalg.norm([vx,vy,vz])
 
+        # generate random values for rotation and cropping in data augmentation
         oangle = np.arctan2(ori_oy, ori_ox)
         delta_angle = np.random.randint(-self.angle_jitter,self.angle_jitter+1)
         dx = np.random.randint(-self.crop_x_jitter,self.crop_x_jitter+1)
         dy = np.random.randint(0,self.crop_y_jitter+1) - PIXEL_OFFSET
 
-        o_camx = ox + ori_ox*2
-        o_camy = oy + ori_oy*2
-
         pixel_ox = 160
         pixel_oy = 260
 
+        # first perform random rotation
         bird_view = cv2.warpAffine(
                 bird_view,
                 cv2.getRotationMatrix2D((pixel_ox,pixel_oy), delta_angle, 1.0),
                 bird_view.shape[1::-1], flags=cv2.INTER_LINEAR)
 
-        # random cropping
+        # then perform random cropping
         center_x, center_y = 160, 260-self.crop_size//2
         bird_view = bird_view[
                 dy+center_y-self.crop_size//2:dy+center_y+self.crop_size//2,
@@ -283,3 +309,9 @@ def get_birdview(
     val = make_dataset('val', False)
 
     return train, val
+
+'''
+things used when calculating random cropping:
+PIXEL_OFFSET = 10
+center_y = 260-self.crop_size//2
+'''

@@ -13,7 +13,7 @@ from torchvision import transforms
 import math
 import random
 
-import augmenter
+# import augmenter
 
 PIXEL_OFFSET = 10
 PIXELS_PER_METER = 5
@@ -91,11 +91,11 @@ class ImageDataset(Dataset):
         
         self.gaussian_radius = gaussian_radius
         
-        print ("augment with ", augment_strategy)
-        if augment_strategy is not None and augment_strategy != 'None':
-            self.augmenter = getattr(augmenter, augment_strategy)
-        else:
-            self.augmenter = None
+        # print ("augment with ", augment_strategy)
+        # if augment_strategy is not None and augment_strategy != 'None':
+        #     self.augmenter = getattr(augmenter, augment_strategy)
+        # else:
+        self.augmenter = None
 
         count = 0
         for full_path in glob.glob('%s/**'%dataset_path):
@@ -129,10 +129,12 @@ class ImageDataset(Dataset):
 
         lmdb_txn = self.file_map[idx]
         index = self.idx_map[idx]
-        
-        bird_view = np.frombuffer(lmdb_txn.get(('birdview_%04d'%index).encode()), np.uint8).reshape(320,320,7)
+
+        semantic_image = cv2.imdecode(np.frombuffer(lmdb_txn.get(('semantic_%04d' %index).encode()), np.uint8), cv2.IMREAD_UNCHANGED)[:,:,None].astype('int32')
+        depth_image = cv2.imdecode(np.frombuffer(lmdb_txn.get(('depth_%04d' %index).encode()), np.uint8), cv2.IMREAD_UNCHANGED)[:,:,None].astype('int32')
+        bird_view = np.frombuffer(lmdb_txn.get(('birdview_%04d'%index).encode()), np.uint8).reshape(200,200,7)
         measurement = np.frombuffer(lmdb_txn.get(('measurements_%04d'%index).encode()), np.float32)
-        rgb_image = np.fromstring(lmdb_txn.get(('rgb_%04d'%index).encode()), np.uint8).reshape(160,384,3)
+        rgb_image = cv2.imdecode(np.frombuffer(lmdb_txn.get(('rgb_%04d'%index).encode()), np.uint8), cv2.IMREAD_UNCHANGED)
 
         if self.augmenter:
             rgb_images = [self.augmenter(self.batch_read_number).augment_image(rgb_image) for i in range(self.batch_aug)]
@@ -160,7 +162,7 @@ class ImageDataset(Dataset):
         center_x, center_y = 160, 260-self.crop_size//2
         
             
-        bird_view = bird_view[dy+center_y-self.crop_size//2:dy+center_y+self.crop_size//2,dx+center_x-self.crop_size//2:dx+center_x+self.crop_size//2]
+        # bird_view = bird_view[dy+center_y-self.crop_size//2:dy+center_y+self.crop_size//2,dx+center_x-self.crop_size//2:dx+center_x+self.crop_size//2]
         
         angle = np.arctan2(ori_oy, ori_ox) + np.deg2rad(delta_angle)
         ori_ox, ori_oy = np.cos(angle), np.sin(angle)
@@ -193,6 +195,8 @@ class ImageDataset(Dataset):
             #     import pdb; pdb.set_trace()
             rgb_images = torch.stack([self.rgb_transform(img) for img in rgb_images])
         bird_view = self.bird_view_transform(bird_view)
+        depth_image = self.rgb_transform(depth_image)
+        semantic_image = self.rgb_transform(semantic_image)
         
         # Create mask
         # output_h = self.rgb_shape[0] // self.down_ratio
@@ -219,7 +223,7 @@ class ImageDataset(Dataset):
             
         self.batch_read_number += 1
        
-        return rgb_images, bird_view, np.array(locations), cmd, speed
+        return rgb_images, bird_view, np.array(locations), cmd, speed, depth_image, semantic_image
 
         
 def load_image_data(dataset_path, 

@@ -87,12 +87,16 @@ MODULE_WORLD = 'WORLD'
 MODULE_HUD = 'HUD'
 MODULE_INPUT = 'INPUT'
 
-PIXELS_PER_METER = 5
+PIXELS_PER_METER = 4
 
 MAP_DEFAULT_SCALE = 0.1
 HERO_DEFAULT_SCALE = 1.0
 
-PIXELS_AHEAD_VEHICLE = 100
+# (bev-height // 2) + ( ||camera_loc - vehicle_loc|| * PIXELS_PER_METER)
+# ||camera_loc - vehicle_loc|| is the camera's location relative to vehicle; in lbc it is 2 meters
+# (200 // 2) + (2 * 4)
+PIXELS_AHEAD_VEHICLE = 108
+# the center of the final bev image is PIXELS_AHEAD_VEHICLE in ahead the ego vehicle
 
 
 def get_actor_display_name(actor, truncate=250):
@@ -519,6 +523,32 @@ class MapImage(object):
 
 
 class ModuleWorld(object):
+    """
+    There are 3 sets of surfaces:
+
+        x_surface, hero_x_surface, and window_surface.
+
+        x_surface's size covers the entire carla town map. It is constructed by getting
+        all possible spaced-out waypoints and finding the difference between the max and
+        the min. Its coordinate system is in the town coord sys.
+
+        hero_x_surface is of size 1.5 * bev map size. It is centered closer to (but not exactly
+        at) to the center of the resulting bev. Its origin has been shifted but the orientation
+        still in town coord sys. Its larger size is required so that no info is lost when the
+        rotation is performed, which makes the car location roughly at the bottom of the bev.
+
+        window_surface is the actual bev, and its size is the actual bev size.
+
+    Logic for rendering:
+
+        First all actors are rendered on x_surface in city coord. Then a region close to the
+        egovehicle is clipped and rendered onto hero_x_surface. Hero_x_surface is then rotated,
+        and it just so happen the math checks out and the desired origin is right at the middle
+        center of the image. The excess margins are trimmed to create the window_surface.
+
+    Carla coordinate sys is forward is x, horizontal (not sure right or left) is y, height is z. In BEV,
+    x is the height of the img, y is the width.
+    """
 
     def __init__(self, name, client, world, town_map, hero_actor):
 
@@ -558,23 +588,23 @@ class ModuleWorld(object):
         self.original_surface_size = None
         # self.actors_surface = None
         
-        self.self_surface = None
-        self.vehicle_surface = None
-        self.walker_surface = None
+        self.self_surface: pygame.Surface = None
+        self.vehicle_surface: pygame.Surface = None
+        self.walker_surface: pygame.Surface = None
         
-        self.hero_map_surface = None
-        self.hero_lane_surface = None
-        self.hero_self_surface = None
-        self.hero_vehicle_surface = None
-        self.hero_walker_surface = None
-        self.hero_traffic_light_surface = None
+        self.hero_map_surface: pygame.Surface = None
+        self.hero_lane_surface: pygame.Surface = None
+        self.hero_self_surface: pygame.Surface = None
+        self.hero_vehicle_surface: pygame.Surface = None
+        self.hero_walker_surface: pygame.Surface = None
+        self.hero_traffic_light_surface: pygame.Surface = None
 
-        self.window_map_surface = None
-        self.window_lane_surface = None
-        self.window_self_surface = None
-        self.window_vehicle_surface = None
-        self.window_walker_surface = None
-        self.window_traffic_light_surface = None
+        self.window_map_surface: pygame.Surface = None
+        self.window_lane_surface: pygame.Surface = None
+        self.window_self_surface: pygame.Surface = None
+        self.window_vehicle_surface: pygame.Surface = None
+        self.window_walker_surface: pygame.Surface = None
+        self.window_traffic_light_surface: pygame.Surface = None
 
         self.hero_map_image = None
         self.hero_lane_image = None
@@ -594,6 +624,14 @@ class ModuleWorld(object):
         )
 
     def get_hero_measurements(self):
+        """
+        Retrieve various stats about the egovehicle in the town coord sys.
+        Returns:
+            position: xyz in meter
+            orientation: xy (not sure if normalized)
+            veolcity: xyz velocity
+            acceleration: xyz acceleration
+        """
         pos = self.hero_actor.get_location()
         ori = self.hero_actor.get_transform().get_forward_vector()
         vel = self.hero_actor.get_velocity()
@@ -607,6 +645,11 @@ class ModuleWorld(object):
                 }
 
     def start(self):
+        """
+        Create the 3 sets of surfaces, and other miscellious surfaces.
+        Returns:
+
+        """
         # Create Surfaces
         self.map_image = MapImage(self.world, self.town_map, PIXELS_PER_METER)
 
@@ -645,7 +688,7 @@ class ModuleWorld(object):
         pygame.draw.circle(self.border_round_surface, COLOR_ALUMINIUM_1, center_offset, int(self.module_hud.dim[1] / 2))
         pygame.draw.circle(self.border_round_surface, COLOR_WHITE, center_offset, int((self.module_hud.dim[1] - 8) / 2))
 
-        scaled_original_size = self.original_surface_size * (1.0 / 0.9)
+        scaled_original_size = self.original_surface_size * 1.5
         # self.hero_surface = pygame.Surface((scaled_original_size, scaled_original_size)).convert()
 
         self.hero_map_surface = pygame.Surface((scaled_original_size, scaled_original_size)).convert()
@@ -682,6 +725,14 @@ class ModuleWorld(object):
         self.update_hud_info(clock)
 
     def update_hud_info(self, clock):
+        """
+        Updates the Heads Up Display(HUD) text that shows the current status of the simulator.
+        Args:
+            clock ():
+
+        Returns:
+
+        """
         hero_mode_text = []
         if self.hero_actor is not None:
             hero_speed = self.hero_actor.get_velocity()
@@ -737,6 +788,13 @@ class ModuleWorld(object):
         self.simulation_time = timestamp.elapsed_seconds
 
     def _split_actors(self):
+        """
+        Obtain a list of actors, including vehicles, traffic lights, speed limits, and pedestrians.
+        Splits them into their own categories and return those lists individually. Additionally,
+        add some near vehicles' stats into the heads up display.
+        Returns:
+
+        """
         vehicles = []
         traffic_lights = []
         speed_limits = []
@@ -770,8 +828,15 @@ class ModuleWorld(object):
 
         return (vehicles, traffic_lights, speed_limits, walkers)
 
-
     def get_bounding_box(self, actor):
+        """
+        Get the bounding box of an actor. Todo: figure out why the last transform is required.
+        Args:
+            actor ():
+
+        Returns:
+
+        """
         bb = actor.trigger_volume.extent
         corners = [carla.Location(x=-bb.x, y=-bb.y),
                   carla.Location(x=bb.x, y=-bb.y),
@@ -784,6 +849,19 @@ class ModuleWorld(object):
         return corners
 
     def _render_traffic_lights(self, surface, list_tl, world_to_pixel, world_to_pixel_width, from_snapshot=False):
+        """
+        For every traffic light, draw onto |surface| the corresponding color of red, yellow, and green. The
+        radius of the traffic lights are todo.
+        Args:
+            surface ():
+            list_tl ():
+            world_to_pixel ():
+            world_to_pixel_width ():
+            from_snapshot ():
+
+        Returns:
+
+        """
         self.affected_traffic_light = None
 
         for tl in list_tl:
@@ -884,6 +962,18 @@ class ModuleWorld(object):
                 surface.blit(font_surface, (x - radius / 2, y - radius / 2))
 
     def _render_walkers(self, surface, list_w, world_to_pixel, from_snapshot=False):
+        """
+        Map each walker to their corners in world coord. Then map the coords to pixels, and finally draw them onto
+        the Surfaces.
+        Args:
+            surface ():
+            list_w ():
+            world_to_pixel ():
+            from_snapshot ():
+
+        Returns:
+
+        """
         # print ("Walkers")
 
         for w in list_w:
@@ -1016,6 +1106,9 @@ class ModuleWorld(object):
         self.map_image.scale_map(scale_factor)
 
     def render(self, display, snapshot=None):
+        """
+        Does the heavylifting of rendering the objects in the road scene onto the BEV occupany maps.
+        """
         if snapshot is None and self.actors_with_transforms is None:
             return
 
@@ -1035,7 +1128,7 @@ class ModuleWorld(object):
         if self.scaled_size != self.prev_scaled_size:
             self._compute_scale(scale_factor)
 
-        # Render Actors
+        ############################## Render all actors in city coord on the x_surface
         self.vehicle_surface.fill(COLOR_BLACK)
         self.walker_surface.fill(COLOR_BLACK)
         self.traffic_light_surface.fill(COLOR_BLACK)
@@ -1058,10 +1151,14 @@ class ModuleWorld(object):
         #             # (self.vehicle_id_surface, (0, 0)),
         #             )
 
+        ############################## Clip a region from x_surface onto hero_x_surface. Then rotate
+
+        # compute the angle the vehicle is facing. Yaw is parallel to the ground.
         center_offset = (0, 0)
         angle = 0.0 if self.hero_actor is None else self.hero_transform.rotation.yaw + 90
         self.traffic_light_surfaces.rotozoom(-angle, self.map_image.scale)
-        
+
+        # hero_front is a normalized vector of the egovehicle's orientation
         if self.hero_actor is not None:
             if snapshot is None:
                 hero_front = self.hero_transform.get_forward_vector()
@@ -1079,6 +1176,19 @@ class ModuleWorld(object):
                 hero_orientation = snapshot["player"]["transform"]["orientation"]
                 hero_front = carla.Location(x=hero_orientation["x"], y=hero_orientation["y"])
 
+            # The offset is computed to reflect which region on the city coord from x_surface we want.
+            # It is the upper left hand corner of the resulting hero_x_surface.
+            # We starts at [0, 0], meaning we start with the upper left corner of the city coord. Then
+            # we move to the egovehicle's loc. We then move a little to the left and up, so that the
+            # center of hero_x_surface aligns with the egovehicle's loc. This is still not enough,
+            # as we actual want the region at in front of the egovehicle, but not including the egovehicle.
+            # PIXELS_AHEAD_VEHICLE represents that desire distance. Right now, it is set to
+            # self.hero_map_surface.get_width() / 2 + (2_meters_in_front_where_the_camera_is).
+            # The egovehicle could be facing at an agle, thus we use hero_front to determine the amount
+            # of the pixel ahead to each axis.
+            #
+            # Note that after rotation, the math checks out, and hero_x_surface's center is exactly the
+            # center we want for the bev.
             offset = [0, 0]
             offset[0] += hero_location_screen[0] - self.hero_map_surface.get_width() / 2
             offset[0] += hero_front.x * PIXELS_AHEAD_VEHICLE
@@ -1122,13 +1232,19 @@ class ModuleWorld(object):
             # TODO: traffic lights and speed limits surface
             rz = pygame.transform.rotozoom
 
-            rotated_map_surface = rz(self.hero_map_surface, angle, 0.9).convert()
-            rotated_lane_surface = rz(self.hero_lane_surface, angle, 0.9).convert()
-            rotated_vehicle_surface = rz(self.hero_vehicle_surface, angle, 0.9).convert()
-            rotated_walker_surface = rz(self.hero_walker_surface, angle, 0.9).convert()
-            rotated_traffic_surface = rz(self.hero_traffic_light_surface, angle, 0.9).convert()
+            rotated_map_surface = rz(self.hero_map_surface, angle, 1.0).convert()
+            rotated_lane_surface = rz(self.hero_lane_surface, angle, 1.0).convert()
+            rotated_vehicle_surface = rz(self.hero_vehicle_surface, angle, 1.0).convert()
+            rotated_walker_surface = rz(self.hero_walker_surface, angle, 1.0).convert()
+            rotated_traffic_surface = rz(self.hero_traffic_light_surface, angle, 1.0).convert()
             # rotated_self_surface = rz(self.hero_self_surface, angle, 0.9).convert()
 
+            # This is a neat way to copy the correct region from hero_x_surface onto x_surface.
+            # A precondition here is that the center of hero_x_surface is exactly the center
+            # for the x_surface. .get_rect(center=center) will obtain a rectangle the same
+            # dim as rotated_x_surface, but the center is now in the window_x_surface's coord
+            # sys. This way, when rotated_x_surface is rendered onto window_x_surface, the unwanted
+            # margins are outside the blit area.
             center = (display.get_width() / 2, display.get_height() / 2)
             rotation_map_pivot = rotated_map_surface.get_rect(center=center)
             rotation_lane_pivot = rotated_lane_surface.get_rect(center=center)
@@ -1323,12 +1439,12 @@ class Wrapper(object):
         module_manager.clear_modules()
 
         pygame.init()
-        display = pygame.display.set_mode((320, 320), 0, 32)
+        display = pygame.display.set_mode((200, 200), 0, 32)
         pygame.display.flip()
 
         # Set map drawer module
         input_module = ModuleInput(MODULE_INPUT)
-        hud_module = ModuleHUD(MODULE_HUD, 320, 320)
+        hud_module = ModuleHUD(MODULE_HUD, 200, 200)
         world_module = ModuleWorld(MODULE_WORLD, client, world, carla_map, player)
 
         # Register Modules

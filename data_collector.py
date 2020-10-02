@@ -206,7 +206,7 @@ def get_episode(env, params):
 
     progress.close()
 
-    if (not env.is_success() and not env.collided) or len(data) < 500:
+    if (not env.is_success() and not env.collided) or len(data) < 166:
         return None
 
     return data
@@ -238,6 +238,12 @@ def main(params):
                 txn.put('len'.encode(), str(n).encode())
 
                 for i, x in enumerate(data):
+                    txn.put(
+                        ('depth_%04d' % i).encode(),
+                        np.ascontiguousarray(x['depth']).astype(np.uint8))
+                    txn.put(
+                        ('semantic_%04d' % i).encode(),
+                        np.ascontiguousarray(x['semantic']).astype(np.uint8))
                     txn.put(
                             ('rgb_%04d' % i).encode(),
                             np.ascontiguousarray(x['rgb']).astype(np.uint8))

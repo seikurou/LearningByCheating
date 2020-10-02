@@ -32,11 +32,12 @@ NAME=pretrained_vpn_e2e_unfrozentrain_3
 NAME=pretrained_vpn_e2e_3
 NAME=pretrained_vpn_frozen_7
 NAME=pretrained_vpn_unfrozen_8
+NAME=vpn_noise_0
 
 python benchmark_agent.py \
---model-path=./ckpts/$NAME/model-32.th \
+--model-path=./ckpts/$NAME/model-8.th \
 --max-run 25 \
---port 3000 \
+--port 2000 \
 --suite=empty \
 --show \
 #--suite=dense \

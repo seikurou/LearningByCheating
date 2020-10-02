@@ -29,8 +29,8 @@ NAME=debug
 NAME=1280res_150ksamples_noise
 mkdir -p ./data/$NAME/
 python data_collector.py --dataset_path=data/$NAME \
---frames_per_episode 1000 \
---n_episodes 150 \
+--frames_per_episode 2000 \
+--n_episodes 5000 \
 --nodisplay \
 
 << sample_cmd

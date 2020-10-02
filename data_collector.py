@@ -133,11 +133,10 @@ class NoisyAgent(RoamingAgentMine):
         self.last_throttle = 0
 
         if noise:
-            self.params = {'drive': (40, 'noise'), 'noise': (10, 'drive')}
+            self.params = {'drive': (40, 'noise'), 'noise': (9, 'drive')}
         else:
             self.params = {'drive': (100, 'drive')}
         self.noise_func = noise
-        # print("state switched!")
 
         self.speed_control = PIDController(K_P=0.5, K_I=0.5/20, K_D=0.1)
         self.turn_control = PIDController(K_P=0.75, K_I=1.0/20, K_D=0.0)
@@ -164,7 +163,6 @@ class NoisyAgent(RoamingAgentMine):
             control.brake = real_control.brake
 
         if self.steps == num_steps:
-            print("state switched!", next_state)
             self.steps = 0
             self.state = next_state
             self.last_throttle = control.throttle
@@ -238,10 +236,13 @@ def get_episode(env, params):
 
     progress.close()
 
-    if (not env.is_success() and not env.collided) or len(data) < 500:
-        return None
+    # commented this out because we want the model to see scenarios where crashes are imminent too
+    # if (not env.is_success() and not env.collided) or len(data) < 500:
+    #     return None
 
-    return data
+    # get rid of the first 5 frames because car was still warming up from simulator and not really working
+    # get rid of the last 5 frames because when collision happened, the frontal camera is all blocked
+    return data[5:-5]
 
 
 def main(params):

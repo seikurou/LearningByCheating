@@ -61,6 +61,7 @@ class BirdViewPolicyModelSS(common.ResnetBase):
         self.config = kwargs['config']
         bev_name = self.config['bev_net']
         if bev_name == 'vpn':
+            pretrained = '/data/ck/BESEG/baseline_vpn/runs/lbc_noise_7/_best.pth.tar'
             from vpn.train_carla import parse_args_and_construct_model
             vpn_args = ''' --fc-dim 256 --use-mask false --transform-type fc --input-resolution 512 --label-resolution 32 --n-views 1 --num-class {bev_channel}  \
             --use_depth False \
@@ -71,7 +72,7 @@ class BirdViewPolicyModelSS(common.ResnetBase):
             --resume {pretrained} \
             '''.format(
                 bev_channel=input_channel,
-                pretrained='/data/ck/BESEG/baseline_vpn/runs/lbc_2/_best.pth.tar'
+                pretrained=pretrained
             )
             self.bev_net = parse_args_and_construct_model(vpn_args)
 

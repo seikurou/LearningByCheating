@@ -122,14 +122,25 @@ def get_birdview(observations):
 
 def process(observations):
     result = dict()
+    # cv2.imcode returns (sucess, encoding), so we index into encoding
+    # encoding is an array which may not be 1D so we flatten it
+    # [..., ::-1] converts RGB to BGR for cv2
     result['rgb'] = cv2.imencode('.png', observations['rgb'][..., ::-1])[1].flatten()
     result['rgb_left'] = cv2.imencode('.png', observations['rgb_left'][..., ::-1])[1].flatten()
     result['rgb_right'] = cv2.imencode('.png', observations['rgb_right'][..., ::-1])[1].flatten()
 
     depth = observations['depth']
+    # prevent integer overflow in following calculation
     depth = depth.astype('float32')
+    # Use formula from:
+    # https://carla.readthedocs.io/en/0.8.4/cameras_and_sensors/#camera-depth-map
+    # "The "depth map" camera provides an image with 24 bit floating precision point codified in the
+    # 3 channels of the RGB color space. The order from less to more significant bytes is R -> G -> B."
+    # note depth becomes a single channel image.
     depth = KM_TO_CM * ((depth[:, :, 0] + depth[:, :, 1] * 256 + depth[:, :, 2] * 256 * 256) / (256 * 256 * 256 - 1))
+    # 16 bit range. Original range was [0, 100000]
     depth = np.clip(depth, 0, 65535)
+    # cv2 can encode a single channel, 16-bit image as png
     depth = depth.astype('uint16')
     result['depth'] = cv2.imencode('.png', depth)[1].flatten()
 
